@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Iklim Kaltim</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* --- GLOBAL STYLE --- */
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; overflow: hidden; }
+        
+        /* NAVBAR */
+        .navbar {
+            background: #fff; padding: 0 20px; border-bottom: 3px solid #3498db;
+            display: flex; justify-content: space-between; align-items: center; height: 70px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 1000; position: relative;
+        }
+        .brand-box { display: flex; align-items: center; gap: 15px; }
+        .logo-img { height: 42px; width: auto; transition: transform 0.2s; }
+        .logo-img:hover { transform: scale(1.05); } 
+        
+        .titles h1 { font-size: 17px; margin: 0; color: #2c3e50; font-weight: 700; }
+        .titles p { font-size: 12px; margin: 0; color: #7f8c8d; }
+        
+        .title-link { text-decoration: none; color: inherit; transition: color 0.2s; }
+        .title-link:hover { color: #3498db; }
+
+        /* MENU NAVIGASI */
+        .nav-menu { display: flex; gap: 5px; height: 100%; margin-right: 20px;}
+        .nav-item {
+            display: flex; align-items: center; padding: 0 15px;
+            text-decoration: none; color: #555; font-weight: 600; font-size: 14px;
+            cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s;
+        }
+        .nav-item:hover { background: #f8f9fa; color: #3498db; }
+        .nav-item.active { border-bottom: 3px solid #3498db; color: #3498db; background: #f0f8ff; }
+
+        /* INFO KANAN */
+        .right-info { display: flex; align-items: center; gap: 15px; }
+        .clock-box { font-family: 'Courier New', monospace; text-align: center; background: #fff0f0; padding: 4px 10px; border-radius: 5px; border: 1px solid #ffcccc; line-height: 1.1; }
+        .time-wita { font-size: 16px; font-weight: 800; color: #3980dd; display: block; margin-bottom: 2px;}
+        .time-utc { font-size: 16px; font-weight: 800; color: #3980dd; opacity: 0.8; }
+        .date-display { font-size: 12px; color: #555; background: #f0f2f5; padding: 6px 12px; border-radius: 6px; font-weight: 600; border: 1px solid #e1e4e8; }
+
+        /* SECTIONS */
+        .section-view { display: none; height: calc(100vh - 115px); width: 100%; position: relative; } 
+        .section-view.active { display: block; }
+
+        /* FOOTER BAR */
+        .footer {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 45px;
+            background-color: #333; border-top: 5px solid #27ae60; color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 500; z-index: 2000;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* WIDGETS */
+        .weather-widget { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 900px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 999; overflow: hidden; }
+        .weather-header { background: #f1c40f; color: #333; padding: 8px 15px; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; z-index: 2; position: relative; }
+        .weather-marquee { overflow: hidden; white-space: nowrap; position: relative; padding: 10px 0; }
+        .weather-track { display: flex; gap: 0; width: fit-content; animation: scroll-left 40s linear infinite; }
+        .weather-track:hover { animation-play-state: paused; }
+        @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .weather-card { min-width: 120px; text-align: center; border-right: 1px solid #eee; padding: 0 15px; display: inline-block; }
+        .wc-city { font-size: 11px; font-weight: bold; color: #555; text-transform: uppercase; margin-bottom: 5px; }
+        .wc-icon { width: 40px; height: 40px; margin: 0 auto; display: block; }
+        .wc-temp { font-size: 18px; font-weight: 800; color: #333; margin: 5px 0; }
+        .wc-desc { font-size: 11px; color: #7f8c8d; }
+
+        /* WIDGET TOP 10 */
+        .top10-container { 
+            position: absolute; bottom: 20px; left: 20px; 
+            width: 350px; background: #2c3e50; border-radius: 8px; overflow: hidden; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 999; font-family: 'Segoe UI', sans-serif; border: 1px solid #34495e; 
+        }
+        .top10-header { background: #27ae60; color: white; padding: 10px; font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .top10-table { width: 100%; border-collapse: collapse; font-size: 11px; color: #ecf0f1; }
+        .top10-table th { background: #34495e; padding: 8px; text-align: left; border-bottom: 1px solid #465c71; }
+        .top10-table td { padding: 6px 8px; border-bottom: 1px solid #3e5063; }
+        .top10-val-col { color: white; font-weight: bold; text-align: center; width: 80px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .top10-scroll { max-height: 250px; overflow-y: auto; }
+        .top10-scroll::-webkit-scrollbar { width: 5px; }
+        .top10-scroll::-webkit-scrollbar-thumb { background: #7f8c8d; border-radius: 3px; }
+
+        /* MAP FULL SCREEN */
+        #map { width: 100%; height: 100%; }
+
+        /* INTERACTIVE PAGE (FULL MAP) */
+        .interactive-container { padding: 0; height: 100%; width: 100%; position: relative; }
+        .controls { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: white; padding: 10px 20px; border-radius: 50px; 
+            display: flex; align-items: center; gap: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; 
+        }
+        .date-picker { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .btn-load { padding: 8px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        #map-interactive { height: 100%; width: 100%; z-index: 1; }
+
+        /* --- TABLE OVERLAY STYLE --- */
+        .btn-toggle-table {
+            position: absolute; top: 80px; right: 20px;
+            background: #34495e; color: white; border: none; padding: 10px 15px;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1002;
+            font-weight: bold; display: flex; align-items: center; gap: 8px;
+            transition: background 0.3s;
+        }
+        .btn-toggle-table:hover { background: #2c3e50; }
+
+        .table-overlay {
+            position: absolute; top: 135px; right: 20px;
+            width: 450px; max-height: calc(100% - 150px);
+            background: rgba(44, 62, 80, 0.95);
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 1001; display: flex; flex-direction: column;
+            overflow: hidden; backdrop-filter: blur(5px);
+            border: 1px solid #34495e; transition: transform 0.3s ease-in-out;
+        }
+        .table-overlay.hidden { transform: translateX(120%); }
+        
+        .tbl-header {
+            background: #34495e; color: #ecf0f1; padding: 12px 15px;
+            font-weight: bold; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid #2c3e50;
+        }
+        .tbl-content { overflow-y: auto; flex: 1; }
+        .tbl-content::-webkit-scrollbar { width: 6px; }
+        .tbl-content::-webkit-scrollbar-thumb { background: #7f8c8d; border-radius: 3px; }
+        
+        .data-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #bdc3c7; }
+        .data-table th {
+            background: #2c3e50; position: sticky; top: 0; padding: 10px;
+            text-align: right; font-weight: 600; color: #3498db; 
+            box-shadow: 0 2px 2px rgba(0,0,0,0.1); 
+            cursor: pointer; user-select: none;
+        }
+        .data-table th:hover { background: #34495e; color: #fff; }
+        .data-table th:first-child { text-align: left; }
+        .data-table td { padding: 8px 10px; border-bottom: 1px solid #3e5063; text-align: right; }
+        .data-table td:first-child { text-align: left; color: #ecf0f1; font-weight: 500; }
+        .data-table tr:hover { background: rgba(52, 152, 219, 0.1); }
+
+        /* POPUP & LEGEND STYLE */
+        .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
+        .custom-popup .leaflet-popup-content { margin: 0; width: 220px; }
+        .popup-header { background: #f8f9fa; padding: 10px; font-weight: bold; border-bottom: 1px solid #eee; font-size: 14px; color: #2c3e50; }
+        .popup-body { padding: 15px; text-align: center; }
+        .rain-value { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+        .unit { font-size: 14px; font-weight: normal; color: #95a5a6; }
+        .popup-label { font-size: 12px; font-weight: 600; color: #7f8c8d; text-transform: uppercase; margin-bottom: 10px; display: block; }
+        .tgl-popup { font-size: 11px; color: #95a5a6; margin-top: 10px; border-top: 1px dashed #eee; padding-top: 8px; display: block; }
+        
+        /* 1. LEGEND STANDARD (UNTUK HOME) */
+        .legend { 
+            line-height: 18px; color: #555; background: white; 
+            padding: 10px 15px; border-radius: 8px; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.2); 
+            margin-bottom: 20px !important; 
+        }
+        .legend h4 { margin: 0 0 10px; color: #333; font-size: 13px; font-weight: bold; text-align: center; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 12px; }
+        .legend i { width: 13px; height: 13px; float: left; margin-right: 8px; opacity: 0.9; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
+
+        /* 2. LEGEND TABLE STYLE (UNTUK INTERACTIVE - KOTAK TEGAS) */
+        .legend-table-style {
+            padding: 0 !important;
+            border-radius: 0 !important;
+            border: 2px solid #000 !important; /* Border hitam tebal */
+            background: white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2); 
+            margin-bottom: 20px !important;
+            margin-left: 20px !important; /* Jarak dari kiri */
+            color: #000;
+            line-height: 1;
+        }
+
+        .placeholder-page { text-align: center; padding: 50px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="brand-box">
+            <a href="https://www.bmkg.go.id/" target="_blank">
+                <img src="/static/logo.png" class="logo-img">
+            </a>
+            <div class="titles">
+                <h1>
+                    <a href="https://bmkgsamarinda.com/" target="_blank" class="title-link">
+                        Stasiun Meteorologi Kelas III Aji Pangeran Tumenggung Pranoto
+                    </a>
+                </h1>
+                <p>Monitoring Data Curah Hujan Harian Kalimantan Timur</p>
+            </div>
+        </div>
+        <div class="nav-menu">
+            <div class="nav-item active" onclick="showSection('home', this)">Home</div>
+            <div class="nav-item" onclick="showSection('visual', this)">Visualisasi</div>
+            <div class="nav-item" onclick="showSection('interactive', this)">Peta Interaktif</div>
+            <div class="nav-item" onclick="showSection('analisis', this)">Analisis</div>
+        </div>
+        <div class="right-info">
+            <div class="clock-box">
+                <span class="time-wita" id="clock-wita">00:00:00 WITA</span>
+                <span class="time-utc" id="clock-utc">00:00:00 UTC</span>
+            </div>
+            <div class="date-display" id="header-date">Memuat...</div>
+        </div>
+    </div>
+
+    <div id="section-home" class="section-view active">
+        <div class="weather-widget" id="weather-widget-container">
+            <div class="weather-header">
+                <span>☁️ Prakiraan Cuaca Hari Ini (Sumber: BMKG)</span>
+                <span style="font-size: 18px; cursor: pointer;" onclick="document.getElementById('weather-widget-container').style.display='none'">&times;</span>
+            </div>
+            <div class="weather-marquee"><div class="weather-track" id="bmkg-track"><div style="padding:0 20px;">Mengambil data...</div></div></div>
+        </div>
+        <div class="top10-container" id="top10-widget">
+            <div class="top10-header"><div><span>10 Besar</span> Curah Hujan Harian Maksimum</div><div style="cursor:pointer" onclick="document.getElementById('top10-widget').style.display='none'">&times;</div></div>
+            <div class="top10-scroll"><table class="top10-table"><thead><tr><th style="width: 35%">Kabupaten</th><th>Kecamatan</th><th style="text-align:center;">CH (mm)</th></tr></thead><tbody id="top10-body"><tr><td colspan="3" style="text-align:center; padding:10px;">Memuat...</td></tr></tbody></table></div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <div id="section-interactive" class="section-view">
+        <div class="interactive-container">
+            <div class="controls">
+                <label><strong>Pilih Tanggal:</strong></label>
+                <input type="date" id="date-picker" class="date-picker">
+                <button class="btn-load" onclick="loadInteractiveData()">Tampilkan Data</button>
+                <span id="loading-text" style="color: #e67e22; display:none; font-weight:bold; font-size:12px;">⏳ Memuat...</span>
+            </div>
+            
+            <button class="btn-toggle-table" onclick="toggleTable()"><span>📋 Data Tabel</span></button>
+
+            <div class="table-overlay" id="interactive-table-box">
+                <div class="tbl-header">
+                    <span id="tbl-title">Rekapitulasi Bulan Ini</span>
+                    <span style="cursor:pointer; font-size:18px;" onclick="toggleTable()">&times;</span>
+                </div>
+                <div class="tbl-content">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left" onclick="sortTable('nama_lokasi')">Kecamatan ⇅</th>
+                                <th onclick="sortTable('das1')">DAS1 ⇅</th>
+                                <th onclick="sortTable('das2')">DAS2 ⇅</th>
+                                <th onclick="sortTable('das3')">DAS3 ⇅</th>
+                                <th onclick="sortTable('total')">Total ⇅</th>
+                                <th onclick="sortTable('hh')">HH ⇅</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body-interactive">
+                            <tr><td colspan="6" style="text-align:center; padding:20px;">Silakan pilih tanggal & klik Tampilkan Data</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="map-interactive"></div>
+        </div>
+    </div>
+
+    <div id="section-visual" class="section-view"><div class="placeholder-page"><h2>📊</h2><p>Halaman Visualisasi Grafik (Coming Soon)</p></div></div>
+    <div id="section-analisis" class="section-view"><div class="placeholder-page"><h2>📈</h2><p>Halaman Analisis (Coming Soon)</p></div></div>
+
+    <div class="footer">
+        &copy; 2025 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // CLOCK
+        function updateClocks() {
+            const now = new Date();
+            const hUTC = String(now.getUTCHours()).padStart(2, '0');
+            const mUTC = String(now.getUTCMinutes()).padStart(2, '0');
+            const sUTC = String(now.getUTCSeconds()).padStart(2, '0');
+            const optionsWITA = { timeZone: 'Asia/Makassar', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            const timeWITA = now.toLocaleTimeString('en-GB', optionsWITA);
+            document.getElementById('clock-utc').innerText = `${hUTC}:${mUTC}:${sUTC} UTC`;
+            document.getElementById('clock-wita').innerText = `${timeWITA} WITA`;
+            const dateOptions = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
+            document.getElementById('header-date').innerText = now.toLocaleDateString('id-ID', dateOptions);
+        }
+        setInterval(updateClocks, 1000); updateClocks();
+
+        function showSection(sectionId, element) {
+            document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('section-' + sectionId).classList.add('active');
+            element.classList.add('active');
+            if(sectionId === 'home') setTimeout(() => { mapHome.invalidateSize(); }, 200);
+            if(sectionId === 'interactive') setTimeout(() => { mapInteractive.invalidateSize(); if(!document.getElementById('date-picker').value) document.getElementById('date-picker').valueAsDate = new Date(); }, 200);
+        }
+
+        // --- FUNGSI FORMAT ANGKA (BARU: TAMPIL SEADANYA, SUPPORT KOMA) ---
+        function formatAngka(num) {
+            if (num === null || num === undefined || num === '') return '0';
+            return parseFloat(num).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+        }
+
+        // --- FUNGSI POPUP DENGAN DATA TOTAL ---
+        function getPopupContent(nama, nilai, color, labelKategori, tanggalStr, totalBulanan) {
+            var obsDate = new Date(tanggalStr);
+            var strDataDate = tanggalStr;
+            var strObsDate = tanggalStr;
+            if (!isNaN(obsDate.getTime())) {
+                var options = { day: 'numeric', month: 'short', year: 'numeric' };
+                strObsDate = obsDate.toLocaleDateString('id-ID', options);
+                obsDate.setDate(obsDate.getDate() - 1);
+                strDataDate = obsDate.toLocaleDateString('id-ID', options);
+            }
+
+            // LOGIKA HTML TOTAL BULANAN
+            let totalHtml = '';
+            if (totalBulanan !== undefined && totalBulanan !== null) {
+                let val = formatAngka(totalBulanan);
+                totalHtml = `
+                <div style="margin: 8px 0; padding: 6px; background-color: #f1f8ff; border: 1px solid #d1e8ff; border-radius: 6px; text-align: center;">
+                    <span style="font-size: 11px; color: #555; display: block; font-weight: 600; text-transform: uppercase;">Total Bulan Ini</span>
+                    <span style="font-size: 16px; color: #2980b9; font-weight: 800;">${val}</span> <span style="font-size: 10px;">mm</span>
+                </div>`;
+            }
+
+            let valHarian = formatAngka(nilai);
+            let unit = (labelKategori === 'Hari Hujan') ? ' Hari' : ' mm';
+
+            return `<div class="popup-header">${nama}</div>
+                    <div class="popup-body">
+                        <div class="rain-value" style="color:${color}">${valHarian} <span class="unit">${unit}</span></div>
+                        <span class="popup-label">${labelKategori}</span>
+                        
+                        ${totalHtml} 
+
+                        <div style="margin-top:5px; border-top:1px dashed #eee; padding-top:8px; line-height:1.4;">
+                            <span style="font-size:12px; color:#555;font-weight:bold;">Tanggal Data: ${strDataDate}</span><br>
+                            <span style="font-size:10px; color:#999;font-style:italic;">(Data update jam 07.00 tanggal ${strObsDate})</span>
+                        </div>
+                    </div>`;
+        }
+        
+        function getColorDaily(d) {
+            return d > 150 ? '#800080' : d > 100 ? '#FF0000' : d > 50 ? '#FFA500' : d > 20 ? '#FFD700' : d >= 1 ? '#32CD32' : '#D9DDDC';
+        }
+        
+        function getColorDAS(d) {
+            return d > 300 ? '#1E4E1E' : 
+                   d > 200 ? '#408040' : 
+                   d > 150 ? '#99D5A0' : 
+                   d > 100 ? '#DDEECC' : 
+                   d > 75 ? '#E9E962' : 
+                   d > 50 ? '#D6AA00' : 
+                   d > 20  ? '#C86400' : 
+                   d > 10  ? '#783A14' : 
+                             '#40210A';
+        }
+
+        function getColorAccum(d) {
+            return d > 500 ? '#1E4E1E' : 
+                   d > 400 ? '#408040' : 
+                   d > 300 ? '#99D5A0' : 
+                   d > 200 ? '#DDEECC' : 
+                   d > 150 ? '#E9E962' : 
+                   d > 100 ? '#D6AA00' : 
+                   d > 50  ? '#C86400' : 
+                   d > 20  ? '#783A14' : 
+                             '#40210A';
+        }
+
+        // --- WARNA KHUSUS HH (Hari Hujan) ---
+        function getColorHH(d) {
+            return d > 20 ? '#66FF00' : 
+                   d > 10 ? '#FFFF00' : 
+                   d > 1  ? '#FFA500' : 
+                            '#D9DDDC';
+        }
+
+        // --- FUNGSI GLOBAL MARKER EVENT ---
+        function attachMarkerEvents(marker) {
+            marker.isLocked = false; 
+            marker.on('mouseover', function(e) { if (!this.isLocked) { this.openPopup(); } });
+            marker.on('mouseout', function(e) { if (!this.isLocked) { this.closePopup(); } });
+            marker.on('click', function(e) { this.isLocked = true; this.openPopup(); });
+            marker.on('popupclose', function(e) { this.isLocked = false; });
+        }
+
+        // MAP HOME
+        var mapHome = L.map('map', {zoomControl: false}).setView([-0.5, 116.5], 7);
+        L.control.zoom({ position: 'topleft' }).addTo(mapHome);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '© OpenStreetMap & CartoDB'}).addTo(mapHome);
+        
+        var legendHome = L.control({position: 'bottomright'});
+        legendHome.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = '<strong>Hujan Harian</strong><br><div style="font-size:11px;font-weight:bold;color:#27ae60;margin-bottom:8px;line-height:1.2;border-bottom:1px solid #eee;padding-bottom:5px;">Data CH merupakan akumulasi curah hujan saat<br>pukul 07.00 kemarin sampai 07.00 hari ini</div>' + 
+            '<div class="legend-item"><i style="background:#D7DDDC; width:13px; height:13px; border-radius:50%;"></i> 0 - 0.9 mm</div>' +
+            '<div class="legend-item"><i style="background:#32CD32; width:13px; height:13px; border-radius:50%;"></i> 1 - 20 mm</div>' +
+            '<div class="legend-item"><i style="background:#FFD700; width:13px; height:13px; border-radius:50%;"></i> 20 - 50 mm</div>' +
+            '<div class="legend-item"><i style="background:#FFA500; width:13px; height:13px; border-radius:50%;"></i> 50 - 100 mm</div>' +
+            '<div class="legend-item"><i style="background:#FF0000; width:13px; height:13px; border-radius:50%;"></i> 100 - 150 mm</div>' +
+            '<div class="legend-item"><i style="background:#800080; width:13px; height:13px; border-radius:50%;"></i> > 150 mm</div>';
+            return div;
+        };
+        legendHome.addTo(mapHome);
+
+        fetch('/api/dashboard-data').then(res => res.json()).then(data => {
+            data.daily.forEach(pos => {
+                if(pos.lintang && pos.bujur) {
+                    let totalVal = null;
+                    if(data.monthly) {
+                        const matchedRow = data.monthly.find(row => 
+                            row.nama_pos.toLowerCase() === pos.nama_pos.toLowerCase()
+                        );
+                        if(matchedRow) totalVal = matchedRow.total_bulanan; 
+                    }
+
+                    let color = getColorDaily(pos.curah_hujan);
+                    let popupHtml = getPopupContent(pos.nama_pos, pos.curah_hujan, color, "Curah Hujan", data.daily[0]?.tanggal_str || '-', null); 
+                    let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 8, weight: 1 });
+                    marker.bindPopup(popupHtml, {className: 'custom-popup'});
+                    attachMarkerEvents(marker); 
+                    marker.addTo(mapHome);
+                }
+            });
+            const tbodyTop = document.getElementById('top10-body');
+            tbodyTop.innerHTML = '';
+            if(data.top10.length === 0) tbodyTop.innerHTML = '<tr><td colspan="3" style="text-align:center;">Data Kosong</td></tr>';
+            else {
+                data.top10.forEach((row, index) => {
+                    let opacity = 1 - ((index / 9) * 0.7); if(opacity < 0.3) opacity = 0.3;
+                    let bgStyle = `background-color: rgba(231, 76, 60, ${opacity});`;
+                    let val = formatAngka(row.curah_hujan);
+                    tbodyTop.innerHTML += `<tr><td>${row.kabupaten||'-'}</td><td>${row.kecamatan||row.nama_pos}</td><td class="top10-val-col" style="${bgStyle}">${val}</td></tr>`;
+                });
+            }
+        });
+
+        fetch('/api/bmkg-weather').then(res => res.json()).then(data => {
+            const track = document.getElementById('bmkg-track'); track.innerHTML = '';
+            if(data.length === 0) { track.innerHTML = '<div style="padding:15px">Gagal memuat data BMKG.</div>'; return; }
+            const createCards = (items) => { let html = ''; items.forEach(item => { html += `<div class="weather-card"><div class="wc-city">${item.kota}</div><img src="${item.icon}" class="wc-icon"><div class="wc-temp">${item.suhu}°C</div><div class="wc-desc">${item.cuaca}</div></div>`; }); return html; };
+            const content = createCards(data); track.innerHTML = content + content;
+        }).catch(err => document.getElementById('bmkg-track').innerHTML = '<div style="padding:15px">Gagal koneksi ke BMKG</div>');
+
+        // MAP INTERACTIVE
+        var mapInteractive = L.map('map-interactive', {zoomControl: false}).setView([-0.5, 116.5], 7);
+        L.control.zoom({ position: 'topleft' }).addTo(mapInteractive);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '© OpenStreetMap & CartoDB'}).addTo(mapInteractive);
+        
+        var dailyLayer = L.layerGroup().addTo(mapInteractive);
+        var accumLayer = L.layerGroup();
+        var das1Layer = L.layerGroup(); 
+        var das2Layer = L.layerGroup(); 
+        var das3Layer = L.layerGroup(); 
+        var hhLayer = L.layerGroup(); 
+
+        L.control.layers(null, {
+            "Hujan Harian": dailyLayer, 
+            "Akumulasi Bulanan": accumLayer,
+            "DAS 1 (Tgl 1-10)": das1Layer, 
+            "DAS 2 (Tgl 11-20)": das2Layer, 
+            "DAS 3 (Tgl 21-Akhir)": das3Layer,
+            "Hari Hujan (HH)": hhLayer 
+        }, {collapsed: false, position: 'topleft'}).addTo(mapInteractive);
+        
+        // --- LEGENDA INTERAKTIF DINAMIS ---
+        var legendInteractive = L.control({position: 'bottomleft'}); // Tetap di Kiri
+        
+        legendInteractive.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'legend-table-style'); 
+            div.id = 'dynamic-legend'; // ID untuk update konten
+            return div;
+        }
+        legendInteractive.addTo(mapInteractive);
+
+        // FUNGSI UPDATE KONTEN LEGENDA BERDASARKAN TIPE
+        function updateLegend(type) {
+            const div = document.getElementById('dynamic-legend');
+            if(!div) return;
+
+            let content = '';
+            
+            if (type === 'daily') {
+                // LEGENDA HUJAN HARIAN
+                content = `
+            <div style="display: flex; background: white; border: 2px solid black; font-family: sans-serif; width: fit-content; overflow: hidden;">
+                
+                <div style="border-right: 1px solid black;">
+                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:11px; background:#f0f0f0;">AKUMULASI CURAH HUJAN (mm) :</div>
+                    <table style="width:100%; border-collapse:collapse; font-size:10px; text-align:center;">
+                        <tr>
+                            <td style="background:#40210A; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">0 - 20</td>
+                            <td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 6px;">RENDAH</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#783A14; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">20 - 50</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#C86400; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">50 - 100</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#D6AA00; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">100 - 150</td>
+                            <td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 6px;">MENENGAH</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#E9E962; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">150 - 200</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#DDEECC; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">200 - 300</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#99D5A0; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">300 - 400</td>
+                            <td rowspan="2" style="font-weight:bold; border-bottom:1px solid black; padding:0 6px;">TINGGI</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#408040; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">400 - 500</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#1E4E1E; width:25px; height:14px; border-right:1px solid black;"></td>
+                            <td style="border-right:1px solid black; padding:2px 6px;">> 500</td>
+                            <td style="font-weight:bold; padding:0 6px; font-size:9px;">SANGAT TINGGI</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div style="border-right: 1px solid black;">
+                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:11px; background:#f0f0f0;">CH Dasarian (mm) :</div>
+                    <table style="width:100%; border-collapse:collapse; font-size:10px; text-align:center;">
+                        <tr>
+                            <td style="background:#40210A; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">0 - 10</td>
+                            
+                        </tr>
+                        <tr>
+                            <td style="background:#783A14; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">10 - 20</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#C86400; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">20 - 50</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#D6AA00; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">50 - 75</td>
+                            
+                        </tr>
+                        <tr>
+                            <td style="background:#E9E962; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">75 - 100</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#DDEECC; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">100 - 150</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#99D5A0; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">150 - 200</td>
+                            
+                        </tr>
+                        <tr>
+                            <td style="background:#408040; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
+                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">200 - 300</td>
+                        </tr>
+                        <tr>
+                            <td style="background:#1E4E1E; width:25px; height:14px; border-right:1px solid black;"></td>
+                            <td style="border-right:1px solid black; padding:2px 6px;">> 300</td>
+            
+                        </tr>
+                    </table>
+                </div>
+
+            </div>`;
+            } else if (type === 'hh') {
+                // LEGENDA HARI HUJAN (HH)
+                content = `
+                <div style="background:white; border:1px solid black; padding:0; font-family:sans-serif;">
+                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:12px;">HARI HUJAN (Hari) :</div>
+                    <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
+                        <tr><td style="background:#D9DDDC; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">0 - 5</td></tr>
+                        <tr><td style="background:#32CD32; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">6 - 10</td></tr>
+                        <tr><td style="background:#FFD700; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">11 - 15</td></tr>
+                        <tr><td style="background:#FFA500; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">16 - 20</td></tr>
+                        <tr><td style="background:#FF0000; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">21 - 25</td></tr>
+                        <tr><td style="background:#800080; width:30px; height:15px; border-right:1px solid black;"></td><td style="border-right:1px solid black; padding:2px 8px;">> 25</td></tr>
+                    </table>
+                </div>`;
+            } else if (type === 'das') {
+                // LEGENDA KHUSUS DAS (Skala Lebih Kecil)
+                content = `
+                <div style="background:white; border:1px solid black; padding:0; font-family:sans-serif;">
+                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:12px;">CURAH HUJAN DASARIAN (mm) :</div>
+                    <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
+                        <tr><td style="background:#40210A; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">0 - 10</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">RENDAH</td></tr>
+                        <tr><td style="background:#783A14; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">11 - 20</td></tr>
+                        <tr><td style="background:#C86400; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">21 - 50</td></tr>
+                        <tr><td style="background:#D6AA00; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">51 - 75</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">MENENGAH</td></tr>
+                        <tr><td style="background:#E9E962; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">76 - 100</td></tr>
+                        <tr><td style="background:#DDEECC; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">101 - 150</td></tr>
+                        <tr><td style="background:#99D5A0; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">151 - 200</td><td rowspan="2" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">TINGGI</td></tr>
+                        <tr><td style="background:#408040; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">201 - 300</td></tr>
+                        <tr><td style="background:#1E4E1E; width:30px; height:15px; border-right:1px solid black;"></td><td style="border-right:1px solid black; padding:2px 8px;">> 300</td><td style="font-weight:bold; padding:0 8px;">SANGAT TINGGI</td></tr>
+                    </table>
+                </div>`;
+            } else {
+                // LEGENDA AKUMULASI (Skala Besar)
+                content = `
+                <div style="background:white; border:1px solid black; padding:0; font-family:sans-serif;">
+                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:12px;">AKUMULASI CURAH HUJAN (mm) :</div>
+                    <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
+                        <tr><td style="background:#40210A; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">0 - 20</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">RENDAH</td></tr>
+                        <tr><td style="background:#783A14; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">21 - 50</td></tr>
+                        <tr><td style="background:#C86400; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">51 - 100</td></tr>
+                        <tr><td style="background:#D6AA00; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">101 - 150</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">MENENGAH</td></tr>
+                        <tr><td style="background:#E9E962; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">151 - 200</td></tr>
+                        <tr><td style="background:#DDEECC; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">201 - 300</td></tr>
+                        <tr><td style="background:#99D5A0; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">301 - 400</td><td rowspan="2" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">TINGGI</td></tr>
+                        <tr><td style="background:#408040; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">401 - 500</td></tr>
+                        <tr><td style="background:#1E4E1E; width:30px; height:15px; border-right:1px solid black;"></td><td style="border-right:1px solid black; padding:2px 8px;">> 500</td><td style="font-weight:bold; padding:0 8px;">SANGAT TINGGI</td></tr>
+                    </table>
+                </div>`;
+            }
+            div.innerHTML = content;
+        }
+
+        // EVENT LISTENER: GANTI LEGENDA SAAT LAYER BERUBAH
+        mapInteractive.on('baselayerchange', function(e) {
+            if (e.name === "Hujan Harian") {
+                updateLegend('daily');
+            } else if (e.name.includes("DAS")) { // Deteksi Layer DAS
+                updateLegend('das');
+            } else if (e.name.includes("Hari Hujan")) { // Deteksi Layer HH
+                updateLegend('hh');
+            } else {
+                updateLegend('accum'); // Untuk Akumulasi Bulanan
+            }
+        });
+
+        // SET LEGENDA AWAL (HARIAN)
+        updateLegend('daily');
+        
+        function toggleTable() {
+            document.getElementById('interactive-table-box').classList.toggle('hidden');
+        }
+
+        let globalTableData = [];
+        let sortDirection = {};
+
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body-interactive');
+            tbody.innerHTML = '';
+            if (data && data.length > 0) {
+                data.forEach(row => {
+                    // Update: Format angka dengan f() untuk desimal
+                    const f = (n) => formatAngka(n);
+                    const tr = `<tr>
+                            <td>${row.nama_pos}</td> <td>${f(row.das1)}</td>
+                            <td>${f(row.das2)}</td>
+                            <td>${f(row.das3)}</td>
+                            <td style="font-weight:bold; color:#fff;">${f(row.total)}</td>
+                            <td>${row.hh}</td>
+                        </tr>`;
+                    tbody.innerHTML += tr;
+                });
+                document.getElementById('interactive-table-box').classList.remove('hidden');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Data tidak ditemukan.</td></tr>';
+            }
+        }
+
+        function sortTable(key) {
+            if (globalTableData.length === 0) return;
+            if (!sortDirection[key] || sortDirection[key] === 'asc') { sortDirection[key] = 'desc'; } else { sortDirection[key] = 'asc'; }
+            globalTableData.sort((a, b) => {
+                let valA = a[key]; let valB = b[key];
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+                if (sortDirection[key] === 'asc') { return valA > valB ? 1 : -1; } else { return valA < valB ? 1 : -1; }
+            });
+            renderTable(globalTableData);
+        }
+
+        function loadInteractiveData() {
+            var dateVal = document.getElementById('date-picker').value;
+            if(!dateVal) { alert("Pilih tanggal dulu!"); return; }
+            var selected = new Date(dateVal); selected.setHours(0,0,0,0);
+            var today = new Date(); today.setHours(0,0,0,0);
+            if (selected.getTime() > today.getTime()) { alert("⚠️ Data belum tersedia untuk tanggal masa depan."); return; }
+            if (selected.getTime() === today.getTime()) { alert("⚠️ Curah hujan hari ini akan terakumulasi besok pagi."); }
+            
+            document.getElementById('loading-text').style.display = 'inline';
+            
+            dailyLayer.clearLayers(); 
+            accumLayer.clearLayers();
+            das1Layer.clearLayers();
+            das2Layer.clearLayers();
+            das3Layer.clearLayers();
+            hhLayer.clearLayers();
+
+            globalTableData = []; sortDirection = {};
+            const options = { month: 'long', year: 'numeric' };
+            document.getElementById('tbl-title').innerText = "Rekap " + selected.toLocaleDateString('id-ID', options);
+
+            fetch(`/api/interactive-data?date=${dateVal}`).then(res => res.json()).then(data => {
+                document.getElementById('loading-text').style.display = 'none';
+                if(data.warning) alert(data.warning); else if(data.error) alert(data.error);
+                
+                // 1. RENDER MAP - DAILY (INTERACTIVE)
+                data.daily.forEach(pos => {
+                    if(pos.lintang && pos.bujur) {
+                        let totalVal = null;
+                        let hhVal = null;
+                        if(data.table_data) {
+                            // Match dengan nama_pos
+                            const matchedRow = data.table_data.find(row => 
+                                row.nama_pos.toLowerCase() === pos.nama_pos.toLowerCase()
+                            );
+                            if(matchedRow) {
+                                totalVal = matchedRow.total;
+                                hhVal = matchedRow.hh;
+                            }
+                        }
+
+                        // Layer Daily
+                        let color = getColorDaily(pos.curah_hujan);
+                        let popupHtml = getPopupContent(pos.nama_pos, pos.curah_hujan, color, "Curah Hujan", dateVal, totalVal);
+                        let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 8, weight: 1 });
+                        marker.bindPopup(popupHtml, {className: 'custom-popup'});
+                        attachMarkerEvents(marker); 
+                        marker.addTo(dailyLayer);
+
+                        // Layer HH
+                        if (hhVal !== null) {
+                            let colorHH = getColorHH(hhVal);
+                            let popupHH = getPopupContent(pos.nama_pos, hhVal, colorHH, "Hari Hujan", `Bulan Ini`, null);
+                            let markerHH = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: colorHH, fillOpacity: 0.9, radius: 9, weight: 1 });
+                            markerHH.bindPopup(popupHH, {className: 'custom-popup'});
+                            attachMarkerEvents(markerHH); 
+                            markerHH.addTo(hhLayer);
+                        }
+                    }
+                });
+
+                // 2. RENDER MAP - ACCUMULATION (INTERACTIVE)
+                data.accumulation.forEach(pos => {
+                    if(pos.lintang && pos.bujur) {
+                        let color = getColorAccum(pos.total_akumulasi);
+                        let popupHtml = getPopupContent(pos.nama_pos, pos.total_akumulasi, color, "Total Akumulasi", `s.d. ${dateVal}`, null);
+                        let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 10, weight: 1 });
+                        marker.bindPopup(popupHtml, {className: 'custom-popup'});
+                        attachMarkerEvents(marker); 
+                        marker.addTo(accumLayer);
+                    }
+                });
+
+                // 3. RENDER MAP - DASARIAN (DAS1, DAS2, DAS3)
+                if (data.das_map) {
+                    data.das_map.forEach(pos => {
+                        if(pos.lintang && pos.bujur) {
+                            // --- DAS 1 ---
+                            let color1 = getColorDAS(pos.das1_val);
+                            let popup1 = getPopupContent(pos.nama_pos, pos.das1_val, color1, "Total DAS 1", "Tgl 1-10", null);
+                            let marker1 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color1, fillOpacity: 0.9, radius: 9, weight: 1 });
+                            marker1.bindPopup(popup1, {className: 'custom-popup'});
+                            attachMarkerEvents(marker1); 
+                            marker1.addTo(das1Layer);
+
+                            // --- DAS 2 ---
+                            let color2 = getColorDAS(pos.das2_val);
+                            let popup2 = getPopupContent(pos.nama_pos, pos.das2_val, color2, "Total DAS 2", "Tgl 11-20", null);
+                            let marker2 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color2, fillOpacity: 0.9, radius: 9, weight: 1 });
+                            marker2.bindPopup(popup2, {className: 'custom-popup'});
+                            attachMarkerEvents(marker2); 
+                            marker2.addTo(das2Layer);
+
+                            // --- DAS 3 ---
+                            let color3 = getColorDAS(pos.das3_val);
+                            let popup3 = getPopupContent(pos.nama_pos, pos.das3_val, color3, "Total DAS 3", "Tgl 21-Akhir", null);
+                            let marker3 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color3, fillOpacity: 0.9, radius: 9, weight: 1 });
+                            marker3.bindPopup(popup3, {className: 'custom-popup'});
+                            attachMarkerEvents(marker3); 
+                            marker3.addTo(das3Layer);
+                        }
+                    });
+                }
+
+                // RENDER TABLE
+                if (data.table_data) {
+                    globalTableData = data.table_data;
+                    renderTable(globalTableData);
+                } else {
+                    renderTable([]);
+                }
+            }).catch(err => {
+                console.error(err);
+                document.getElementById('loading-text').style.display = 'none';
+            });
+        }
+    </script>
+</body>
+</html>

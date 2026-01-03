@@ -1,0 +1,7 @@
+Flask
+SQLAlchemy
+pandas
+psycopg2-binary
+requests
+urllib3
+gunicorn
