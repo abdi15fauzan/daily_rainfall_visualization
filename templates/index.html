@@ -70,7 +70,7 @@
         .wc-desc { font-size: 11px; color: #7f8c8d; }
 
         /* WIDGET TOP 10 */
-        .top10-container { 
+        /*.top10-container { 
             position: absolute; bottom: 20px; left: 20px; 
             width: 350px; background: #2c3e50; border-radius: 8px; overflow: hidden; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 999; font-family: 'Segoe UI', sans-serif; border: 1px solid #34495e; 
@@ -82,8 +82,94 @@
         .top10-val-col { color: white; font-weight: bold; text-align: center; width: 80px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
         .top10-scroll { max-height: 250px; overflow-y: auto; }
         .top10-scroll::-webkit-scrollbar { width: 5px; }
-        .top10-scroll::-webkit-scrollbar-thumb { background: #7f8c8d; border-radius: 3px; }
+        .top10-scroll::-webkit-scrollbar-thumb { background: #7f8c8d; border-radius: 3px; }*/
+        .top10-container {
+            position: absolute;
+            /* POSISI AWAL (Kiri Bawah) */
+            bottom: 20px; 
+            left: 20px; 
+            right: auto; /* Reset properti kanan */
 
+            width: 350px; 
+            background: #2c3e50; 
+            border-radius: 8px;
+            overflow: hidden; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            z-index: 9999; 
+            font-family: 'Segoe UI', sans-serif; 
+            border: 1px solid #34495e;
+
+            /*Animasi transisi*/
+            transition: all 0.3s ease;
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        /*Kelas untuk menyembunyikan Tabel*/
+        .top10-container.hidden {
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            pointer-events: none;
+        }
+        .top10-header {
+            background: #27ae60; 
+            color: white; 
+            padding: 10px; 
+            font-size: 13px; 
+            font-weight: bold; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center
+        }
+
+        /* Tombol Close (X) */
+        .close-btn {
+            cursor: pointer;
+            font-size: 16px;
+            color: white;
+            background: none;
+            border: none;
+            padding: 0 5px;
+        }
+        .close-btn:hover { color: #ecf0f1; }
+        .top10-table { width: 100%; border-collapse: collapse; font-size: 11px; color: #ecf0f1; }
+        .top10-table th { background: #34495e; padding: 8px; text-align: left; border-bottom: 1px solid #465c71; }
+        .top10-table td { padding: 6px 8px; border-bottom: 1px solid #3e5063; }
+        .top10-val-col { color: white; font-weight: bold; text-align: center; width: 80px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+        .top10-scroll { max-height: 250px; overflow-y: auto; }
+        .top10-scroll::-webkit-scrollbar { width: 5px; }
+        .top10-scroll::-webkit-scrollbar-thumb { background: #7f8c8d; border-radius: 3px; }
+        /* TOMBOL PEMICU (MUNCUL SAAT TABEL DITUTUP) */
+        .toggle-trigger-btn {
+            position: absolute;
+
+            /* POSISI SAMA DENGAN CONTAINER (Kiri Bawah) */
+            bottom: 20px;
+            left: 20px;
+            right: auto;
+
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            z-index: 999;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .toggle-trigger-btn:hover { background: #219150; }
+        /* Sembunyikan tombol saat tabel sedang terbuka */
+        .toggle-trigger-btn.active { display: none; }
+        
+        
         /* MAP FULL SCREEN */
         #map { width: 100%; height: 100%; }
 
@@ -178,6 +264,89 @@
         }
 
         .placeholder-page { text-align: center; padding: 50px; color: #7f8c8d; }
+        @media screen and (max-width: 768px) {
+
+            /*Penyesuaian NAVBAR*/
+            .navbar {
+                padding: 0 10px;
+                height: 60px;
+                gap: 10px;
+            }
+            .logo-img {height: 32px;}
+            .titles p {display: none;}
+            .titles h1 {
+                font-size: 13px;
+                line-height: 1.2;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* Menu Navigasi jadi scroll samping */
+            .nav-menu {
+                flex: 1; 
+                overflow-x: auto; 
+                white-space: nowrap; 
+                margin-right: 0;
+                scrollbar-width: none;
+            }
+            .nav-menu::-webkit-scrollbar { display: none; } 
+            .nav-item { font-size: 12px; padding: 0 10px; }
+
+            /*Sembuntikan Jam di HP agar tidak sempit*/
+            .right-info { display: none; }
+
+            /* 2. PENYESUAIAN WIDGET HOME */
+            .weather-widget { 
+                width: 94%; 
+                top: 10px;
+            }
+            .weather-header { font-size: 12px; }
+
+            .top10-container {
+                left: 50%; transform: translateX(-50%); 
+                bottom: 60px; 
+                width: 94%; 
+                max-height: 35vh;
+            }
+
+            /* 3. PENYESUAIAN HALAMAN INTERAKTIF */
+            .controls {
+                width: 90%;
+                flex-direction: column; 
+                padding: 10px;
+                border-radius: 15px;
+                gap: 8px;
+            }
+            .controls label { font-size: 12px; }
+            .date-picker { width: 100%; box-sizing: border-box; }
+            .btn-load { width: 100%; padding: 8px 0; }
+
+            /*Tabel Overlay di HP*/
+            .btn-toggle-table { top: 140px; right: 10px; padding: 8px 12px; font-size: 12px; }
+            .table-overlay {
+                width: 94%;
+                right: 3%; 
+                top: 185px; 
+                max-height: 50vh;
+            }
+
+            /* 4. PENYESUAIAN LEGENDA & POPUP */
+            .legend, .legend-table-style {
+                max-width: 180px; 
+                font-size: 10px !important;
+                margin-bottom: 50px !important; 
+                margin-left: 10px !important;
+            }
+            .legend-table-style table td { padding: 1px 3px !important; }
+
+            /* Popup Leaflet agar tidak keluar layar */
+            .leaflet-popup-content { width: 200px !important; }
+            .rain-value { font-size: 24px; }
+        }
+
+
+
     </style>
 </head>
 <body>
@@ -219,11 +388,31 @@
             </div>
             <div class="weather-marquee"><div class="weather-track" id="bmkg-track"><div style="padding:0 20px;">Mengambil data...</div></div></div>
         </div>
-        <div class="top10-container" id="top10-widget">
-            <div class="top10-header"><div><span>10 Besar</span> Curah Hujan Harian Maksimum</div><div style="cursor:pointer" onclick="document.getElementById('top10-widget').style.display='none'">&times;</div></div>
-            <div class="top10-scroll"><table class="top10-table"><thead><tr><th style="width: 35%">Kabupaten</th><th>Kecamatan</th><th style="text-align:center;">CH (mm)</th></tr></thead><tbody id="top10-body"><tr><td colspan="3" style="text-align:center; padding:10px;">Memuat...</td></tr></tbody></table></div>
+        <button id="showTop10Btn" class="toggle-trigger-btn active" onclick="toggleTop10()">
+            📊 10 Besar Hujan
+        </button>
+        <div id="top10Container" class="top10-container">
+            <div class="top10-header">
+                <span>10 Besar Curah Hujan Harian Maksimum</span>
+                <button class="close-btn" onclick="toggleTop10()" title="Tutup Tabel">✖</button>
+            </div>
+            <div class="top10-scroll">
+                <table class="top10-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%">Kabupaten</th>
+                            <th>Kecamatan</th>
+                            <th style="text-align:center;">CH (mm)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="top10-body">
+                         <tr><td colspan="3" style="text-align:center;">Memuat Data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div id="map"></div>
+
     </div>
 
     <div id="section-interactive" class="section-view">
@@ -807,6 +996,21 @@
                 console.error(err);
                 document.getElementById('loading-text').style.display = 'none';
             });
+        }
+        function toggleTop10() {
+            var container = document.getElementById("top10Container");
+            var btn = document.getElementById("showTop10Btn");
+
+            // Toggle class 'hidden' pada container
+            if (container.classList.contains("hidden")) {
+                // Memunculkan Tabel
+                container.classList.remove("hidden");
+                btn.classList.add("active"); // Sembunyikan tombol trigger
+            } else {
+            // Menyembunyikan Tabel
+            container.classList.add("hidden");
+            btn.classList.remove("active"); // Munculkan tombol trigger
+            }
         }
     </script>
 </body>
