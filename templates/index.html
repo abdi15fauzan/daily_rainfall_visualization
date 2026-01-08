@@ -264,6 +264,27 @@
             line-height: 1;
         }
 
+        /* Style Tombol Hamburger (Default Sembunyi di Desktop) */
+        .hamburger {
+            display: none; /* Hilang di layar besar */
+            flex-direction: column;
+            cursor: pointer;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 5px;
+            padding: 8px;
+            gap: 5px;
+        }
+        
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background-color: white; /* Warna garis */
+            border-radius: 2px;
+        }
+
+        
+
         .placeholder-page { text-align: center; padding: 50px; color: #7f8c8d; }
         @media screen and (max-width: 768px) {
 
@@ -344,9 +365,51 @@
             /* Popup Leaflet agar tidak keluar layar */
             .leaflet-popup-content { width: 200px !important; }
             .rain-value { font-size: 24px; }
-        }
 
+            /* Navbar jadi fleksibel */
+            .navbar { flex-wrap: wrap; padding: 10px; position: relative; }
+            .brand-box { max-width: 80%; }
+            .titles h1 { font-size: 13px; }
+            .titles p, .right-info { display: none; } /* Sembunyikan elemen kecil */
 
+            /* MUNCULKAN Tombol Hamburger */
+            .hamburger {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                background: none;
+                border: 1px solid rgba(255,255,255,0.3);
+                padding: 8px;
+                border-radius: 5px;
+                margin-left: auto; /* Dorong ke kanan mentok */
+            }
+            .hamburger span { width: 25px; height: 3px; background: white; }
+            /* UBAH Menu Jadi Vertikal (Drop Down) */
+            .nav-menu {
+                display: none; /* Sembunyi dulu */
+                flex-direction: column; /* Jadi vertikal */
+                width: 100%;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                background-color: #2c3e50;
+                z-index: 9999;
+                padding: 0;
+                gap: 0;
+                box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+            }
+
+            /* Tampilkan menu saat tombol diklik (JS menambahkan class active) */
+            .nav-menu.active { display: flex; }
+
+            /* Style Item Menu Mobile */
+            .nav-item {
+                width: 100%;
+                border-radius: 0;
+                padding: 15px;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+                text-align: left;
+            }
 
     </style>
 </head>
@@ -366,6 +429,13 @@
                 <p>Monitoring Data Curah Hujan Harian Kalimantan Timur</p>
             </div>
         </div>
+
+        <button class="hamburger" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
         <div class="nav-menu">
             <div class="nav-item active" onclick="showSection('home', this)">Home</div>
             <div class="nav-item" onclick="showSection('visual', this)">Visualisasi</div>
@@ -1013,6 +1083,18 @@
             btn.classList.remove("active"); // Munculkan tombol trigger
             }
         }
+
+        function toggleMenu() {
+            var menu = document.getElementById("navMenu");
+            if (menu.style.display === "flex") {
+                menu.style.display = ""; // Reset ke CSS bawaan (sembunyi)
+                menu.classList.remove("active");
+            } else {
+                menu.style.display = "flex"; // Paksa muncul
+                menu.classList.add("active");
+            }
+        }
+
     </script>
 </body>
 </html>
