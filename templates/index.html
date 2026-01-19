@@ -28,7 +28,7 @@
         .title-link:hover { color: #3498db; }
 
         /* MENU NAVIGASI */
-        .nav-menu { display: flex; gap: 5px; height: 100%; margin-right: 20px;}
+        .nav-menu { display: flex; gap: 5px; height: 100%; margin-right: 20px; z-index: 4000;}
         .nav-item {
             display: flex; align-items: center; padding: 0 15px;
             text-decoration: none; color: #555; font-weight: 600; font-size: 14px;
@@ -179,8 +179,19 @@
         .controls { 
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
             background: white; padding: 10px 20px; border-radius: 50px; 
-            display: flex; align-items: center; gap: 15px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; 
+            display: none; align-items: center; gap: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1001; border: 1px solid #ddd;
+        }
+        .close-controls-desktop {
+            cursor: pointer;
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 20px;
+            margin-right: 5px;
+            line-height: 1;
+        }
+        .close-controls-desktop:hover {
+        color: #c0392b;
         }
         .date-picker { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .btn-load { padding: 8px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
@@ -202,9 +213,10 @@
             width: 450px; max-height: calc(100% - 150px);
             background: rgba(44, 62, 80, 0.95);
             border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            z-index: 1001; display: flex; flex-direction: column;
+            z-index: 3; display: flex; flex-direction: column;
             overflow: hidden; backdrop-filter: blur(5px);
             border: 1px solid #34495e; transition: transform 0.3s ease-in-out;
+
         }
         .table-overlay.hidden { transform: translateX(120%); }
         
@@ -230,6 +242,31 @@
         .data-table td:first-child { text-align: left; color: #ecf0f1; font-weight: 500; }
         .data-table tr:hover { background: rgba(52, 152, 219, 0.1); }
 
+        /* --- STYLE TOMBOL PEMICU TANGGAL (BARU) --- */
+        .btn-toggle-date {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%); /* Agar pas di tengah */
+
+            background: white; 
+            color: #333;
+            border: 1px solid #ccc;
+            padding: 10px 25px; 
+            border-radius: 50px; /* Bentuk kapsul */
+            font-weight: bold; 
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            z-index: 1000; 
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-toggle-date:hover {
+            background: #f8f9fa;
+            transform: translateX(-50%) scale(1.05);
+        }
+        
         /* POPUP & LEGEND STYLE */
         .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
         .custom-popup .leaflet-popup-content { margin: 0; width: 220px; }
@@ -283,7 +320,7 @@
             border-radius: 2px;
         }
 
-        
+                
 
         .placeholder-page { text-align: center; padding: 50px; color: #7f8c8d; }
         @media screen and (max-width: 768px) {
@@ -293,7 +330,7 @@
                 padding: 0 10px;
                 height: 60px;
                 gap: 10px;
-                flex-direction: : row;
+                flex-direction: row;
                 flex-wrap: wrap;
                 align-items: center;
                 position: relative;
@@ -319,6 +356,7 @@
                 scrollbar-width: none;
                 width: 100%;
                 height: 25vh;
+                z-index: 4000;
             }
             .nav-menu::-webkit-scrollbar { display: none; } 
             .nav-item { font-size: 12px; padding: 0 10px; }
@@ -355,7 +393,10 @@
             /* 3. PENYESUAIAN HALAMAN INTERAKTIF */
             .controls {
                 width: 90%;
-                flex-direction: column; 
+                flex-direction: column;
+                max-width: 300px;
+                top: 50%;
+                transform: translate(-50%, -50%); 
                 padding: 10px;
                 border-radius: 15px;
                 gap: 8px;
@@ -418,7 +459,7 @@
                 top: 100%;
                 left: 0;
                 background-color: #304152;
-                z-index: 20000 !important;
+                z-index: 20000 ;
                 padding: 0;
                 margin: 0;
                 gap: 0;
@@ -442,6 +483,38 @@
             body.menu-open .interactive-container {
                 pointer-events: none; /* Mencegah interaksi dengan elemen peta di bawah menu */
                 opacity: 0.5; /* Memberi efek visual bahwa area peta sedang tidak aktif */
+            }
+            .btn-toggle-table {
+                position: absolute;
+                top: auto !important;    /* Reset posisi atas */
+                bottom: 30px !important; /* Tempel ke bawah */
+                right: 10px !important;  /* Tempel ke kanan */
+                z-index: 700;
+            }
+
+            .btn-toggle-date {
+                position: absolute;
+                
+                top: 70px; /* Turunkan sedikit di HP agar tidak kena navbar */
+                font-size: 13px;
+                padding: 8px 20px;
+                z-index: 800;
+            }
+
+            .close-controls-desktop {
+                position: absolute;
+                top: 10px;
+                right: 15px;
+                margin-right: 0;
+                font-size: 24px;
+            }
+
+            /* KODE UNTUK MENGHILANGKAN LEGENDA DI MOBILE */
+            #dynamic-legend, 
+            #interactivemaplegend, 
+            .legend, 
+            .legend-table-style {
+                display: none !important;
             }
         }
     </style>
@@ -519,17 +592,23 @@
 
     </div>
 
+    
+
     <div id="section-interactive" class="section-view">
         <div class="interactive-container">
-            <div class="controls">
+            <button class="btn-toggle-date" id="btnShowDate" onclick="toggleDateBox()">
+                📅 Pilih Tanggal
+            </button>
+
+            <div class="controls" id="dateControlBox" style="display: none;">
+                <span class="close-controls-desktop" onclick="toggleDateBox()">&times;</span>
                 <label><strong>Pilih Tanggal:</strong></label>
                 <input type="date" id="date-picker" class="date-picker">
-                <button class="btn-load" onclick="loadInteractiveData()">Tampilkan Data</button>
+                <button class="btn-load" onclick="loadInteractiveData(); toggleDateBox()">Tampilkan Data</button>
                 <span id="loading-text" style="color: #e67e22; display:none; font-weight:bold; font-size:12px;">⏳ Memuat...</span>
             </div>
-            
-            <button class="btn-toggle-table" onclick="toggleTable()"><span>📋 Data Tabel</span></button>
 
+            <button class="btn-toggle-table" onclick="toggleTable()"><span>Data Tabel</span></button>
             <div class="table-overlay" id="interactive-table-box">
                 <div class="tbl-header">
                     <span id="tbl-title">Rekapitulasi Bulan Ini</span>
@@ -1037,7 +1116,7 @@
                         // Layer HH
                         if (hhVal !== null) {
                             let colorHH = getColorHH(hhVal);
-                            let popupHH = getPopupContent(pos.nama_pos, hhVal, colorHH, "Hari Hujan", `Bulan Ini`, null);
+                            let popupHH = getPopupContent(pos.nama_pos, hhVal, colorHH, "Hari Hujan", `s.d. ${dateVal}`, totalVal);
                             let markerHH = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: colorHH, fillOpacity: 0.9, radius: 9, weight: 1 });
                             markerHH.bindPopup(popupHH, {className: 'custom-popup'});
                             attachMarkerEvents(markerHH); 
@@ -1064,7 +1143,7 @@
                         if(pos.lintang && pos.bujur) {
                             // --- DAS 1 ---
                             let color1 = getColorDAS(pos.das1_val);
-                            let popup1 = getPopupContent(pos.nama_pos, pos.das1_val, color1, "Total DAS 1", "Tgl 1-10", null);
+                            let popup1 = getPopupContent(pos.nama_pos, pos.das1_val, color1, "Total DAS 1", `s.d. ${dateVal}`, null);
                             let marker1 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color1, fillOpacity: 0.9, radius: 9, weight: 1 });
                             marker1.bindPopup(popup1, {className: 'custom-popup'});
                             attachMarkerEvents(marker1); 
@@ -1072,7 +1151,7 @@
 
                             // --- DAS 2 ---
                             let color2 = getColorDAS(pos.das2_val);
-                            let popup2 = getPopupContent(pos.nama_pos, pos.das2_val, color2, "Total DAS 2", "Tgl 11-20", null);
+                            let popup2 = getPopupContent(pos.nama_pos, pos.das2_val, color2, "Total DAS 2", `s.d. ${dateVal}`, null);
                             let marker2 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color2, fillOpacity: 0.9, radius: 9, weight: 1 });
                             marker2.bindPopup(popup2, {className: 'custom-popup'});
                             attachMarkerEvents(marker2); 
@@ -1080,7 +1159,7 @@
 
                             // --- DAS 3 ---
                             let color3 = getColorDAS(pos.das3_val);
-                            let popup3 = getPopupContent(pos.nama_pos, pos.das3_val, color3, "Total DAS 3", "Tgl 21-Akhir", null);
+                            let popup3 = getPopupContent(pos.nama_pos, pos.das3_val, color3, "Total DAS 3", `s.d. ${dateVal}`, null);
                             let marker3 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color3, fillOpacity: 0.9, radius: 9, weight: 1 });
                             marker3.bindPopup(popup3, {className: 'custom-popup'});
                             attachMarkerEvents(marker3); 
@@ -1133,6 +1212,24 @@
             } else {
                 menu.style.display = "flex"; // Paksa muncul
                 menu.classList.add("active");
+            }
+        }
+
+        function toggleDateBox() {
+            const box = document.getElementById('dateControlBox');
+            const btn = document.getElementById('btnShowDate');
+            // Jika kotak sedang tertutup (display: none)
+            if (box.style.display === 'none') {
+                // Tampilkan Kotak
+                box.style.display = 'flex';
+                // Sembunyikan Tombol Pemicu
+                btn.style.display = 'none';
+            }
+            else {
+                // Sembunyikan Kotak
+                box.style.display = 'none';
+                // Tampilkan Tombol Pemicu kembali
+                btn.style.display = 'block';
             }
         }
 
