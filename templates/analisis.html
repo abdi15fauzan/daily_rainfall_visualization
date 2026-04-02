@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisis — Dashboard Iklim Kaltim</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f7f6; }
+        .navbar {
+            background: #fff; padding: 0 20px; border-bottom: 3px solid #3498db;
+            display: flex; justify-content: space-between; align-items: center; height: 70px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
+        }
+        .brand-box { display: flex; align-items: center; gap: 15px; }
+        .logo-img   { height: 42px; }
+        .titles h1  { font-size: 17px; margin: 0; color: #2c3e50; font-weight: 700; }
+        .titles p   { font-size: 12px; margin: 0; color: #7f8c8d; }
+        .title-link { text-decoration: none; color: inherit; }
+        .nav-menu { display: flex; gap: 5px; height: 100%; }
+        .nav-item {
+            display: flex; align-items: center; padding: 0 15px; text-decoration: none;
+            color: #555; font-weight: 600; font-size: 14px; cursor: pointer;
+            border-bottom: 3px solid transparent; transition: all .3s;
+        }
+        .nav-item:hover { background: #f8f9fa; color: #3498db; }
+        .nav-item.active { border-bottom: 3px solid #3498db; color: #3498db; background: #f0f8ff; }
+        .clock-box {
+            font-family: 'Courier New', monospace; background: #fff0f0; padding: 5px 12px;
+            border-radius: 5px; border: 1px solid #ffcccc; display: flex; flex-direction: column; gap: 2px;
+        }
+        .clock-row  { display: flex; align-items: center; gap: 6px; }
+        .clock-label{ font-size: 10px; font-weight: 700; color: #aaa; width: 32px; }
+        .clock-time { font-size: 15px; font-weight: 800; color: #3980dd; }
+        .date-display { font-size: 12px; color: #555; background: #f0f2f5; padding: 6px 12px; border-radius: 6px; font-weight: 600; border: 1px solid #e1e4e8; }
+        .right-info { display: flex; align-items: center; gap: 15px; }
+        .placeholder-page { text-align: center; padding: 100px 20px; color: #7f8c8d; }
+        .placeholder-page h2 { font-size: 48px; margin-bottom: 16px; }
+        .placeholder-page p  { font-size: 16px; }
+        .footer { background: #333; border-top: 5px solid #27ae60; color: white; text-align: center; padding: 12px; font-size: 13px; margin-top: 40px; }
+        @media (max-width: 768px) { .nav-menu { display: none; } }
+    </style>
+</head>
+<body>
+<div class="navbar">
+    <div class="brand-box">
+        <a href="https://www.bmkg.go.id/" target="_blank">
+            <img src="/static/logo.png" class="logo-img">
+        </a>
+        <div class="titles">
+            <h1>Dashboard Curah Hujan Harian Kalimantan Timur</h1>
+            <p><a href="https://bmkgsamarinda.com/" target="_blank" class="title-link">Stasiun Meteorologi Kelas III Aji Pangeran Tumenggung Pranoto</a></p>
+        </div>
+    </div>
+    <nav class="nav-menu">
+        <a class="nav-item"        href="/">Home</a>
+        <a class="nav-item"        href="/visualisasi">Visualisasi</a>
+        <a class="nav-item"        href="/">Peta Interaktif</a>
+        <a class="nav-item active" href="/analisis">Analisis</a>
+    </nav>
+    <div class="right-info">
+        <div class="clock-box">
+            <div class="clock-row"><span class="clock-label">WITA</span><span class="clock-time" id="clock-wita">00:00:00</span></div>
+            <div class="clock-row"><span class="clock-label">UTC</span> <span class="clock-time" id="clock-utc">00:00:00</span></div>
+        </div>
+        <div class="date-display" id="header-date">-</div>
+    </div>
+</div>
+
+<div class="placeholder-page">
+    <h2>📈</h2>
+    <p>Halaman Analisis (Coming Soon)</p>
+</div>
+
+<div class="footer">&copy; 2025 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda</div>
+
+<script>
+(function tick() {
+    const now = new Date(), pad = n => String(n).padStart(2,'0');
+    document.getElementById('clock-utc').innerText  = `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
+    document.getElementById('clock-wita').innerText = now.toLocaleTimeString('en-GB',{timeZone:'Asia/Makassar',hour12:false});
+    document.getElementById('header-date').innerText = now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short',year:'numeric'});
+    setTimeout(tick, 1000);
+})();
+</script>
+</body>
+</html>

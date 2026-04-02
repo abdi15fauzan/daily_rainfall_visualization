@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisasi — Dashboard Iklim Kaltim</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f7f6; }
+
+        .navbar {
+            background: #fff; padding: 0 20px; border-bottom: 3px solid #3498db;
+            display: flex; justify-content: space-between; align-items: center; height: 70px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
+        }
+        .brand-box { display: flex; align-items: center; gap: 15px; }
+        .logo-img   { height: 42px; }
+        .titles h1  { font-size: 17px; margin: 0; color: #2c3e50; font-weight: 700; }
+        .titles p   { font-size: 12px; margin: 0; color: #7f8c8d; }
+        .title-link { text-decoration: none; color: inherit; }
+        .title-link:hover { color: #3498db; }
+        .nav-menu { display: flex; gap: 5px; height: 100%; margin-right: 20px; }
+        .nav-item {
+            display: flex; align-items: center; padding: 0 15px; text-decoration: none;
+            color: #555; font-weight: 600; font-size: 14px; cursor: pointer;
+            border-bottom: 3px solid transparent; transition: all .3s;
+        }
+        .nav-item:hover  { background: #f8f9fa; color: #3498db; }
+        .nav-item.active { border-bottom: 3px solid #3498db; color: #3498db; background: #f0f8ff; }
+        .hamburger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 8px; z-index: 10001; }
+        .hamburger span { width: 25px; height: 3px; background: #27ae60; border-radius: 2px; display: block; }
+        .right-info { display: flex; align-items: center; gap: 15px; }
+        .clock-box { font-family: 'Courier New', monospace; background: #fff0f0; padding: 5px 12px; border-radius: 5px; border: 1px solid #ffcccc; display: flex; flex-direction: column; gap: 2px; }
+        .clock-row   { display: flex; align-items: center; gap: 6px; }
+        .clock-label { font-size: 10px; font-weight: 700; color: #aaa; width: 32px; }
+        .clock-time  { font-size: 15px; font-weight: 800; color: #3980dd; }
+        .date-display { font-size: 12px; color: #555; background: #f0f2f5; padding: 6px 12px; border-radius: 6px; font-weight: 600; border: 1px solid #e1e4e8; }
+
+        .footer { background: #333; border-top: 5px solid #27ae60; color: white; text-align: center; padding: 12px; font-size: 13px; margin-top: 40px; }
+        .page-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px 60px; }
+
+        .filter-card { background: white; border-radius: 12px; padding: 22px 28px; box-shadow: 0 2px 12px rgba(0,0,0,.07); margin-bottom: 28px; }
+        .filter-card h3 { margin: 0 0 16px; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #7f8c8d; text-transform: uppercase; text-align: center; }
+        .filter-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: center; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; min-width: 160px; flex: 1; }
+        .filter-group label { font-size: 12px; font-weight: 600; color: #555; }
+        .filter-group select { padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; background: white; cursor: pointer; }
+        .filter-group select:focus { outline: none; border-color: #3498db; }
+        .btn-tampilkan { padding: 10px 28px; background: #2c3e50; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 14px; align-self: flex-end; transition: background .2s; white-space: nowrap; }
+        .btn-tampilkan:hover { background: #1a252f; }
+
+        .summary-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+        .sum-card { background: white; border-radius: 10px; padding: 16px 18px; box-shadow: 0 2px 8px rgba(0,0,0,.06); text-align: center; }
+        .sum-card .sc-label { font-size: 11px; font-weight: 700; color: #7f8c8d; text-transform: uppercase; margin-bottom: 6px; }
+        .sum-card .sc-value { font-size: 26px; font-weight: 800; color: #2c3e50; line-height: 1; }
+        .sum-card .sc-unit  { font-size: 13px; color: #95a5a6; }
+        .sum-card .sc-sub   { font-size: 11px; color: #7f8c8d; margin-top: 4px; }
+
+        .chart-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.07); margin-bottom: 24px; }
+        .chart-title { text-align: center; margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #2c3e50; }
+        .chart-sub   { text-align: center; color: #7f8c8d; font-size: 13px; margin-bottom: 8px; }
+        .chart-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+        .btn-download { background: none; border: 1px solid #ddd; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #555; transition: all .2s; }
+        .btn-download:hover { background: #f0f8ff; border-color: #3498db; color: #3498db; }
+
+        .das-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+        .das-chip { flex: 1; min-width: 100px; background: #f8f9fa; border-radius: 8px; padding: 10px 12px; text-align: center; border: 1px solid #e9ecef; }
+        .das-chip .dc-label { font-size: 11px; font-weight: 700; color: #7f8c8d; text-transform: uppercase; }
+        .das-chip .dc-value { font-size: 18px; font-weight: 800; color: #2c3e50; }
+        .das-chip .dc-unit  { font-size: 11px; color: #95a5a6; }
+
+        .view-toggle { display: flex; gap: 8px; margin-bottom: 16px; justify-content: center; flex-wrap: wrap; }
+        .vt-btn { padding: 7px 18px; border: 2px solid #ddd; border-radius: 50px; background: white; color: #555; font-weight: 600; font-size: 13px; cursor: pointer; transition: all .2s; }
+        .vt-btn.active { border-color: #3498db; background: #3498db; color: white; }
+        .vt-btn:hover:not(.active) { border-color: #3498db; color: #3498db; }
+
+        .legend-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 10px; }
+        .leg-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
+        .leg-dot  { width: 14px; height: 14px; border-radius: 3px; }
+
+        .data-tbl-wrap { overflow-x: auto; margin-top: 8px; }
+        .data-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-tbl th { background: #2c3e50; color: #3498db; padding: 10px 12px; text-align: center; font-weight: 600; position: sticky; top: 0; }
+        .data-tbl th:first-child { text-align: left; }
+        .data-tbl td { padding: 8px 12px; border-bottom: 1px solid #ecf0f1; text-align: center; }
+        .data-tbl td:first-child { text-align: left; font-weight: 600; }
+        .data-tbl tr:hover { background: #f8f9fa; }
+        .data-tbl tr.tbl-max td { background: #fff3cd; font-weight: 700; }
+        .tbl-max-badge { display: inline-block; background: #e74c3c; color: white; border-radius: 50px; font-size: 10px; padding: 1px 6px; margin-left: 4px; }
+
+        .das-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+        .das-tbl th { background: #2c3e50; color: #ecf0f1; padding: 10px; text-align: center; }
+        .das-tbl td { padding: 10px 12px; border-bottom: 1px solid #ecf0f1; text-align: center; }
+        .das-tbl td:first-child { text-align: left; font-weight: 600; color: #2c3e50; }
+        .das-tbl tr:nth-child(even) { background: #f8f9fa; }
+        .das-sub { font-size: 11px; color: #95a5a6; font-weight: 400; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
+        .empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }
+
+        @media (max-width: 768px) {
+            .summary-row { grid-template-columns: repeat(2,1fr); }
+            .filter-row  { flex-direction: column; }
+            .das-row     { flex-direction: column; }
+            .nav-menu    { display: none; position: absolute; top: 70px; left: 0; width: 100%; background: #304152; flex-direction: column; z-index: 20000; margin: 0; padding: 0; box-shadow: 0 5px 10px rgba(0,0,0,.3); }
+            .nav-menu.open { display: flex !important; }
+            .nav-menu.open .nav-item { padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,.1); color: #27ae60; display: block; border-right: none; }
+            .hamburger   { display: flex; }
+            .right-info  { display: none; }
+            .titles h1   { font-size: 13px; }
+            .titles p    { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand-box">
+        <a href="https://www.bmkg.go.id/" target="_blank"><img src="/static/logo.png" class="logo-img"></a>
+        <div class="titles">
+            <h1>Dashboard Curah Hujan Harian Kalimantan Timur</h1>
+            <p><a href="https://bmkgsamarinda.com/" target="_blank" class="title-link">Stasiun Meteorologi Kelas III Aji Pangeran Tumenggung Pranoto</a></p>
+        </div>
+    </div>
+    <button class="hamburger" id="ham-btn" onclick="toggleMobileMenu()">
+        <span></span><span></span><span></span>
+    </button>
+    <nav class="nav-menu" id="viz-nav">
+        <a class="nav-item"        href="/">Home</a>
+        <a class="nav-item active" href="/visualisasi">Visualisasi</a>
+        <a class="nav-item"        href="/#map">Peta Interaktif</a>
+        <a class="nav-item"        href="/analisis">Analisis</a>
+    </nav>
+    <div class="right-info">
+        <div class="clock-box">
+            <div class="clock-row"><span class="clock-label">WITA</span><span class="clock-time" id="clock-wita">00:00:00</span></div>
+            <div class="clock-row"><span class="clock-label">UTC</span> <span class="clock-time" id="clock-utc">00:00:00</span></div>
+        </div>
+        <div class="date-display" id="header-date">-</div>
+    </div>
+</div>
+
+<div class="page-wrap">
+
+    <div class="filter-card">
+        <h3>Filter Data</h3>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Kabupaten:</label>
+                <select id="sel-kabupaten" onchange="onKabupatenChange()">
+                    <option value="all">-- SEMUA KABUPATEN --</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Pos Hujan:</label>
+                <select id="sel-pos">
+                    <option value="">-- SEMUA POS (REKAP KABUPATEN) --</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Tahun:</label>
+                <select id="sel-tahun"></select>
+            </div>
+            <div class="filter-group">
+                <label>Bulan:</label>
+                <select id="sel-bulan">
+                    <option value="1">Januari</option><option value="2">Februari</option>
+                    <option value="3">Maret</option><option value="4">April</option>
+                    <option value="5">Mei</option><option value="6">Juni</option>
+                    <option value="7">Juli</option><option value="8">Agustus</option>
+                    <option value="9">September</option><option value="10">Oktober</option>
+                    <option value="11">November</option><option value="12">Desember</option>
+                </select>
+            </div>
+            <button class="btn-tampilkan" onclick="tampilkan()">Tampilkan</button>
+        </div>
+    </div>
+
+    <div class="summary-row" id="summary-cards" style="display:none;">
+        <div class="sum-card"><div class="sc-label">Total Curah Hujan</div><div class="sc-value" id="sc-total">—</div><div class="sc-unit">mm</div></div>
+        <div class="sum-card"><div class="sc-label">Hujan Maksimum</div><div class="sc-value" id="sc-maks">—</div><div class="sc-unit">mm</div><div class="sc-sub" id="sc-maks-tgl">—</div></div>
+        <div class="sum-card"><div class="sc-label">Jumlah Hari Hujan</div><div class="sc-value" id="sc-hh">—</div><div class="sc-unit">Hari</div></div>
+        <div class="sum-card"><div class="sc-label">Hari Tidak Hujan</div><div class="sc-value" id="sc-hth">—</div><div class="sc-unit">Hari</div></div>
+    </div>
+
+    <div class="chart-card" id="chart1-card">
+        <div class="chart-title" id="chart1-title">Perbandingan Curah Hujan</div>
+        <div class="chart-sub"  id="chart1-sub">Pilih filter dan klik Tampilkan</div>
+        <div class="chart-toolbar"><button class="btn-download" onclick="downloadChart('chart1','grafik-perbandingan')">⬇ Unduh Gambar</button></div>
+        <canvas id="chart1" height="90"></canvas>
+        <div class="das-row" id="das-row-1" style="display:none;">
+            <div class="das-chip"><div class="dc-label">Rerata DAS 1 (1–10)</div><div class="dc-value" id="d1-total1">—</div><div class="dc-unit">mm</div></div>
+            <div class="das-chip"><div class="dc-label">Rerata DAS 2 (11–20)</div><div class="dc-value" id="d2-total1">—</div><div class="dc-unit">mm</div></div>
+            <div class="das-chip"><div class="dc-label">Rerata DAS 3 (21–akhir)</div><div class="dc-value" id="d3-total1">—</div><div class="dc-unit">mm</div></div>
+            <div class="das-chip"><div class="dc-label">Rerata Harian</div><div class="dc-value" id="hh-total1">—</div><div class="dc-unit">mm/hari</div></div>
+        </div>
+    </div>
+
+    <div class="chart-card" id="chart2-card" style="display:none;">
+        <div class="chart-title" id="chart2-title">Grafik Curah Hujan Bulanan</div>
+        <div class="chart-sub"  id="chart2-sub">—</div>
+        <div class="view-toggle">
+            <button class="vt-btn active" id="vt-grafik" onclick="setView('grafik')">📊 Grafik</button>
+            <button class="vt-btn"        id="vt-titik"  onclick="setView('titik')">⚬ Titik</button>
+            <button class="vt-btn"        id="vt-tabel"  onclick="setView('tabel')">📋 Tabel</button>
+        </div>
+
+        <div id="view-grafik">
+            <div class="chart-toolbar"><button class="btn-download" onclick="downloadChart('chart2','grafik-harian')">⬇ Unduh Gambar</button></div>
+            <canvas id="chart2" height="80"></canvas>
+            <div class="legend-row">
+                <div class="leg-item"><div class="leg-dot" style="background:#95a5a6;"></div>Tidak ada hujan</div>
+                <div class="leg-item"><div class="leg-dot" style="background:#27ae60;"></div>0.5–20 mm (Ringan)</div>
+                <div class="leg-item"><div class="leg-dot" style="background:#f1c40f;"></div>20–50 mm (Sedang)</div>
+                <div class="leg-item"><div class="leg-dot" style="background:#e67e22;"></div>50–100 mm (Lebat)</div>
+                <div class="leg-item"><div class="leg-dot" style="background:#e74c3c;"></div>100–150 mm (Sangat Lebat)</div>
+                <div class="leg-item"><div class="leg-dot" style="background:#8e44ad;"></div>&gt;150 mm (Ekstrim)</div>
+            </div>
+        </div>
+
+        <div id="view-titik" style="display:none;">
+            <div class="chart-toolbar"><button class="btn-download" onclick="downloadChart('chart-scatter','grafik-titik')">⬇ Unduh Gambar</button></div>
+            <canvas id="chart-scatter" height="80"></canvas>
+            <div class="legend-row" style="margin-top:8px;">
+                <div class="leg-item"><div style="width:14px;height:14px;border-radius:50%;background:#e74c3c;display:inline-block;"></div>&nbsp;Nilai Tertinggi</div>
+                <div class="leg-item"><div style="width:11px;height:11px;border-radius:50%;background:#3498db;display:inline-block;"></div>&nbsp;Hari lainnya</div>
+            </div>
+        </div>
+
+        <div id="view-tabel" style="display:none;">
+            <div class="data-tbl-wrap">
+                <table class="data-tbl"><thead><tr><th>Tanggal</th><th>CH (mm)</th><th>Keterangan</th><th>Kategori</th></tr></thead>
+                <tbody id="daily-tbody"></tbody></table>
+            </div>
+        </div>
+
+        <div style="margin-top:28px;">
+            <h3 style="text-align:center;font-size:14px;font-weight:700;letter-spacing:1px;color:#7f8c8d;text-transform:uppercase;margin-bottom:12px;">Rekapitulasi Dasarian</h3>
+            <div style="overflow-x:auto;">
+                <table class="das-tbl">
+                    <thead><tr><th>Dasarian</th><th>Total Hujan (mm)</th><th>Hujan Maks (mm) &amp; Tanggal</th><th>Hari Hujan</th><th>Hari Tidak Hujan</th></tr></thead>
+                    <tbody id="das-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="empty-state" id="empty-state">
+        <div class="es-icon">📊</div>
+        <p>Pilih filter di atas dan klik <strong>Tampilkan</strong> untuk melihat data.</p>
+    </div>
+</div>
+
+<div class="footer">&copy; 2025 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda</div>
+
+<script>
+// ── CLOCK ──
+(function tick(){
+    const now=new Date(), pad=n=>String(n).padStart(2,'0');
+    document.getElementById('clock-utc').innerText   = pad(now.getUTCHours())+':'+pad(now.getUTCMinutes())+':'+pad(now.getUTCSeconds());
+    document.getElementById('clock-wita').innerText  = now.toLocaleTimeString('en-GB',{timeZone:'Asia/Makassar',hour12:false});
+    document.getElementById('header-date').innerText = now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short',year:'numeric'});
+    setTimeout(tick,1000);
+})();
+
+// ── MOBILE MENU ──
+function toggleMobileMenu(){
+    document.getElementById('viz-nav').classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#viz-nav .nav-item').forEach(el=>{
+        el.addEventListener('click', ()=>document.getElementById('viz-nav').classList.remove('open'));
+    });
+});
+
+// ── STATE ──
+const BULAN_NAMES=['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+let chart1Inst=null, chart2Inst=null, scatterInst=null;
+let currentDailyData=[], currentView='grafik';
+
+// ── COLORS (BMKG legenda) ──
+function colorForVal(v){
+    const n=+v;
+    if(n>=8888||n<=0)    return '#95a5a6'; // no rain / TTU
+    if(n<20)             return '#27ae60'; // ringan
+    if(n<50)             return '#f1c40f'; // sedang
+    if(n<100)            return '#e67e22'; // lebat
+    if(n<150)            return '#e74c3c'; // sangat lebat
+    return '#8e44ad';                      // ekstrim
+}
+function categoryFor(v){
+    const n=+v;
+    if(n>=8888)  return 'TTU';
+    if(n<=0)     return 'Tidak Hujan';
+    if(n<20)     return 'Hujan Ringan';
+    if(n<50)     return 'Hujan Sedang';
+    if(n<100)    return 'Hujan Lebat';
+    if(n<150)    return 'Hujan Sangat Lebat';
+    return 'Hujan Ekstrim';
+}
+// 8888 → 0.1 for display
+function toViz(v){ const n=+v; return n>=8888 ? 0.1 : Math.max(0,n); }
+
+// ── DOWNLOAD ──
+function downloadChart(id,name){
+    const c=document.getElementById(id); if(!c)return;
+    const a=document.createElement('a'); a.download=name+'.png'; a.href=c.toDataURL('image/png'); a.click();
+}
+
+function toTitleCase(s){ return (s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
+function avg(arr){ return arr.reduce((s,v)=>s+(+v),0)/(arr.length||1); }
+
+// ── INIT ──
+async function initFilters(){
+    const [yrRes,wRes] = await Promise.all([fetch('/api/viz/tahun'), fetch('/api/viz/wilayah')]);
+    const years=await yrRes.json(), wData=await wRes.json();
+    const nowY=new Date().getFullYear();
+    const selY=document.getElementById('sel-tahun');
+    (years.length?years:[nowY]).forEach(y=>{ const o=document.createElement('option'); o.value=o.text=y; if(y==nowY)o.selected=true; selY.appendChild(o); });
+    document.getElementById('sel-bulan').value=new Date().getMonth()+1;
+    const selK=document.getElementById('sel-kabupaten');
+    wData.forEach(w=>{ const o=document.createElement('option'); o.value=w.id_wilayah; o.text=toTitleCase(w.nama_wilayah); selK.appendChild(o); });
+}
+
+async function onKabupatenChange(){
+    const kabId=document.getElementById('sel-kabupaten').value;
+    const selPos=document.getElementById('sel-pos');
+    selPos.innerHTML='<option value="">-- SEMUA POS (REKAP KABUPATEN) --</option>';
+    if(kabId==='all')return;
+    const data=await(await fetch('/api/viz/pos?wilayah_id='+kabId)).json();
+    data.forEach(p=>{ const o=document.createElement('option'); o.value=p.id_kecamatan; o.text=toTitleCase(p.nama_kecamatan); selPos.appendChild(o); });
+}
+
+async function tampilkan(){
+    const kabId=document.getElementById('sel-kabupaten').value;
+    const posId=document.getElementById('sel-pos').value;
+    const tahun=document.getElementById('sel-tahun').value;
+    const bulan=document.getElementById('sel-bulan').value;
+    document.getElementById('empty-state').style.display='none';
+
+    const url1=kabId==='all'?`/api/viz/data-kabupaten?tahun=${tahun}&bulan=${bulan}`:`/api/viz/data-kabupaten?wilayah_id=${kabId}&tahun=${tahun}&bulan=${bulan}`;
+    const d1=await(await fetch(url1)).json();
+    renderChart1(d1,kabId,tahun,bulan);
+
+    if(posId){
+        const d2=await(await fetch(`/api/viz/data-pos?kecamatan_id=${posId}&tahun=${tahun}&bulan=${bulan}`)).json();
+        renderChart2(d2,posId,tahun,bulan);
+        document.getElementById('chart2-card').style.display='block';
+        document.getElementById('summary-cards').style.display='grid';
+    } else {
+        document.getElementById('chart2-card').style.display='none';
+        document.getElementById('summary-cards').style.display='none';
+    }
+}
+
+// ── CHART 1 ──
+function renderChart1(data,kabId,tahun,bulan){
+    const labels  = data.map(d=>toTitleCase(d.label));
+    const totals  = data.map(d=>toViz(d.total));
+    const das1arr = data.map(d=>+d.das1);
+    const das2arr = data.map(d=>+d.das2);
+    const das3arr = data.map(d=>+d.das3);
+    const isAll   = kabId==='all';
+    const kabName = isAll?'Semua Kabupaten':toTitleCase(document.getElementById('sel-kabupaten').selectedOptions[0].text);
+    document.getElementById('chart1-title').innerText = isAll?'Perbandingan Curah Hujan Antar Kabupaten':'Perbandingan Curah Hujan Per Pos — '+kabName;
+    document.getElementById('chart1-sub').innerText   = kabName+' · '+BULAN_NAMES[+bulan]+' '+tahun;
+
+    if(chart1Inst)chart1Inst.destroy();
+    chart1Inst=new Chart(document.getElementById('chart1'),{
+        type:'bar',
+        data:{ labels, datasets:[
+            {label:'Total CH (mm)', data:totals,  backgroundColor:'#5dade2', borderRadius:4},
+            {label:'DAS 1 (mm)',    data:das1arr, backgroundColor:'#a9cce3', borderRadius:4},
+            {label:'DAS 2 (mm)',    data:das2arr, backgroundColor:'#76d7c4', borderRadius:4},
+            {label:'DAS 3 (mm)',    data:das3arr, backgroundColor:'#a9dfbf', borderRadius:4},
+        ]},
+        options:{responsive:true, plugins:{legend:{position:'top'}, tooltip:{mode:'index',intersect:false}},
+            scales:{y:{title:{display:true,text:'Total Hujan (mm)'}}}}
+    });
+
+    // Chips: avg per row (per pos atau per kab)
+    document.getElementById('d1-total1').innerText  = avg(das1arr).toFixed(1);
+    document.getElementById('d2-total1').innerText  = avg(das2arr).toFixed(1);
+    document.getElementById('d3-total1').innerText  = avg(das3arr).toFixed(1);
+    document.getElementById('hh-total1').innerText  = avg(data.map(d=>+(d.rerata_harian||0))).toFixed(2);
+    document.getElementById('das-row-1').style.display='flex';
+}
+
+// ── CHART 2 ──
+function renderChart2(apiData,posId,tahun,bulan){
+    const daily=apiData.daily||[], dasData=apiData.dasarian||[];
+    currentDailyData=daily;
+    const posName=toTitleCase(document.getElementById('sel-pos').selectedOptions[0].text);
+    document.getElementById('chart2-title').innerText='Grafik Curah Hujan Bulanan';
+    document.getElementById('chart2-sub').innerText  =`Pos ${posName.toUpperCase()} · ${BULAN_NAMES[+bulan]} ${tahun}`;
+
+    const valid=daily.filter(d=>+d.curah_hujan>=0.5&&+d.curah_hujan<8888);
+    const total=valid.reduce((s,d)=>s+(+d.curah_hujan),0);
+    const maxRow=valid.reduce((mx,d)=>(+d.curah_hujan>+(mx?.curah_hujan||0)?d:mx),null);
+    document.getElementById('sc-total').innerText    = total.toFixed(1);
+    document.getElementById('sc-maks').innerText     = maxRow?(+maxRow.curah_hujan).toFixed(1):'0';
+    document.getElementById('sc-maks-tgl').innerText = maxRow?'tanggal: '+maxRow.tanggal:'';
+    document.getElementById('sc-hh').innerText       = valid.length;
+    document.getElementById('sc-hth').innerText      = daily.filter(d=>+d.curah_hujan<0.5).length;
+
+    setView(currentView);
+    renderDasTable(dasData);
+}
+
+function setView(v){
+    currentView=v;
+    ['grafik','titik','tabel'].forEach(k=>{
+        document.getElementById('view-'+k).style.display=k===v?'block':'none';
+        document.getElementById('vt-'+k).classList.toggle('active',k===v);
+    });
+    if(v==='grafik') renderBarChart();
+    if(v==='titik')  renderScatterChart();
+    if(v==='tabel')  renderTable();
+}
+
+function renderBarChart(){
+    const daily=currentDailyData;
+    if(chart2Inst)chart2Inst.destroy();
+    const values=daily.map(d=>toViz(d.curah_hujan));
+    const colors=daily.map(d=>colorForVal(d.curah_hujan));
+    const maxV=Math.max(...values.filter(v=>v>0.1));
+    values.forEach((v,i)=>{ if(v===maxV&&v>0.1) colors[i]='#c0392b'; });
+    chart2Inst=new Chart(document.getElementById('chart2'),{
+        type:'bar',
+        data:{labels:daily.map(d=>d.hari), datasets:[{label:'CH (mm)',data:values,backgroundColor:colors,borderRadius:3}]},
+        options:{responsive:true,
+            plugins:{legend:{display:false},tooltip:{callbacks:{
+                label:ctx=>{ const d=daily[ctx.dataIndex]; const orig=+d.curah_hujan;
+                    return orig>=8888?' TTU → 0.1 mm':` ${orig.toFixed(1)} mm — ${categoryFor(orig)}`; }}}},
+            scales:{x:{title:{display:true,text:'Tanggal'}}, y:{title:{display:true,text:'CH (mm)'},min:0}}}
+    });
+}
+
+function renderScatterChart(){
+    const daily=currentDailyData;
+    if(scatterInst)scatterInst.destroy();
+    const rawVals=daily.map(d=>+d.curah_hujan);
+    const values=rawVals.map(v=>toViz(v));
+    const labels=daily.map(d=>d.tanggal);
+    const maxV=Math.max(...values.filter(v=>v>0.1));
+    const maxIdx=values.findIndex(v=>v===maxV&&v>0.1);
+    const bgColors=values.map((_,i)=>i===maxIdx?'#e74c3c':'#3498db');
+    const radii=values.map((_,i)=>i===maxIdx?9:5);
+    scatterInst=new Chart(document.getElementById('chart-scatter'),{
+        type:'line',
+        data:{labels, datasets:[{data:values,borderColor:'#3498db',borderDash:[4,2],borderWidth:1.5,fill:false,tension:0,
+            pointBackgroundColor:bgColors,pointBorderColor:bgColors.map((_,i)=>i===maxIdx?'#fff':bgColors[i]),
+            pointBorderWidth:bgColors.map((_,i)=>i===maxIdx?2:1),
+            pointRadius:radii, pointHoverRadius:radii.map(r=>r+3)}]},
+        options:{responsive:true,
+            plugins:{legend:{display:false},tooltip:{callbacks:{
+                title:ctx=>'Tanggal: '+labels[ctx[0].dataIndex],
+                label:ctx=>{ const orig=rawVals[ctx.dataIndex];
+                    return orig>=8888?' TTU → 0.1 mm':` ${orig.toFixed(1)} mm — ${categoryFor(orig)}`; }}}},
+            scales:{
+                x:{title:{display:true,text:'Tanggal'},ticks:{maxTicksLimit:16,maxRotation:45,minRotation:30}},
+                y:{title:{display:true,text:'CH (mm)'},min:0}}}
+    });
+}
+
+function renderTable(){
+    const daily=currentDailyData;
+    const valid=daily.filter(d=>+d.curah_hujan>=0.5&&+d.curah_hujan<8888);
+    const maxV=valid.length?Math.max(...valid.map(d=>+d.curah_hujan)):-1;
+    const tbody=document.getElementById('daily-tbody'); tbody.innerHTML='';
+    daily.forEach(d=>{
+        const v=+d.curah_hujan, isTTU=v>=8888, isMax=!isTTU&&v===maxV&&v>=0.5;
+        const dispV=isTTU?0.1:v;
+        const tr=document.createElement('tr'); if(isMax)tr.className='tbl-max';
+        tr.innerHTML=`<td>${d.tanggal}${isMax?'<span class="tbl-max-badge">MAX</span>':''}</td>
+            <td>${isTTU?'0.1 <span style="color:#8e44ad;font-size:10px;">(TTU)</span>':dispV.toFixed(1)}</td>
+            <td>${d.keterangan||'—'}</td>
+            <td><span style="background:${colorForVal(v)};color:#fff;padding:2px 8px;border-radius:20px;font-size:11px;">${categoryFor(v)}</span></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderDasTable(dasData){
+    const names={das1:'Dasarian I<br><span class="das-sub">tanggal 1 – 10</span>',das2:'Dasarian II<br><span class="das-sub">tanggal 11 – 20</span>',das3:'Dasarian III<br><span class="das-sub">tanggal 21 – Akhir</span>'};
+    const tbody=document.getElementById('das-tbody'); tbody.innerHTML='';
+    ['das1','das2','das3'].forEach(k=>{
+        const r=dasData.find(d=>d.dasarian===k);
+        if(!r){tbody.innerHTML+=`<tr><td>${names[k]}</td><td>0</td><td>—</td><td>0</td><td>—</td></tr>`;return;}
+        tbody.innerHTML+=`<tr><td>${names[k]}</td><td>${(+r.total).toFixed(1)}</td>
+            <td>${(+r.maks||0).toFixed(1)}<br><span class="das-sub">(${r.tgl_maks||'—'})</span></td>
+            <td>${r.hh} hari</td><td>${r.hth} hari</td></tr>`;
+    });
+}
+
+initFilters();
+</script>
+</body>
+</html>

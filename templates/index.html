@@ -39,10 +39,27 @@
 
         /* INFO KANAN */
         .right-info { display: flex; align-items: center; gap: 15px; }
-        .clock-box { font-family: 'Courier New', monospace; text-align: center; background: #fff0f0; padding: 4px 10px; border-radius: 5px; border: 1px solid #ffcccc; line-height: 1.1; }
-        .time-wita { font-size: 16px; font-weight: 800; color: #3980dd; display: block; margin-bottom: 2px;}
-        .time-utc { font-size: 16px; font-weight: 800; color: #3980dd; opacity: 0.8; }
+        .clock-box {
+            font-family: 'Courier New', monospace;
+            background: #fff0f0; padding: 5px 12px;
+            border-radius: 5px; border: 1px solid #ffcccc;
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .clock-row { display: flex; align-items: center; gap: 6px; }
+        .clock-label { font-size: 10px; font-weight: 700; color: #aaa; width: 32px; text-align: left; }
+        .clock-time  { font-size: 15px; font-weight: 800; color: #3980dd; }
         .date-display { font-size: 12px; color: #555; background: #f0f2f5; padding: 6px 12px; border-radius: 6px; font-weight: 600; border: 1px solid #e1e4e8; }
+
+        /* PULSE ANIMATION untuk titik hujan tertinggi */
+        @keyframes pulse-ring {
+            0%   { transform: scale(1);   opacity: 0.75; }
+            70%  { transform: scale(3.0); opacity: 0; }
+            100% { transform: scale(3.0); opacity: 0; }
+        }
+        .pulse-marker { position: relative; width: 16px; height: 16px; }
+        .pulse-marker .dot  { width: 16px; height: 16px; border-radius: 50%; position: absolute; top: 0; left: 0; border: 2px solid rgba(255,255,255,0.8); }
+        .pulse-marker .ring { width: 16px; height: 16px; border-radius: 50%; position: absolute; top: 0; left: 0; animation: pulse-ring 1.8s ease-out infinite; }
+        .pulse-marker .ring2 { animation-delay: 0.6s; }
 
         /* SECTIONS */
         .section-view { display: none; height: calc(100vh - 115px); width: 100%; position: relative; } 
@@ -288,17 +305,22 @@
         .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 12px; }
         .legend i { width: 13px; height: 13px; float: left; margin-right: 8px; opacity: 0.9; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
 
-        /* 2. LEGEND TABLE STYLE (UNTUK INTERACTIVE - KOTAK TEGAS) */
+        /* 2. LEGEND IMAGE BOX (UNTUK INTERACTIVE) */
         .legend-table-style {
             padding: 0 !important;
-            border-radius: 0 !important;
-            border: 2px solid #000 !important; /* Border hitam tebal */
+            border-radius: 4px !important;
+            border: 2px solid #000 !important;
             background: white;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2); 
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
             margin-bottom: 20px !important;
-            margin-left: 20px !important; /* Jarak dari kiri */
-            color: #000;
-            line-height: 1;
+            margin-left: 20px !important;
+            overflow: hidden;
+            line-height: 0;
+        }
+        #dynamic-legend img {
+            display: block;
+            width: 340px;   /* sesuaikan lebar gambar Anda */
+            height: auto;
         }
 
         /* Style Tombol Hamburger (Default Sembunyi di Desktop) */
@@ -323,7 +345,21 @@
                 
 
         .placeholder-page { text-align: center; padding: 50px; color: #7f8c8d; }
+
+        /* JAM MINI DI MOBILE (samping hamburger) */
+        .mobile-clock {
+            display: none; /* sembunyi di desktop */
+            flex-direction: column;
+            align-items: flex-end;
+            font-family: 'Courier New', monospace;
+            line-height: 1.1;
+        }
+        .mobile-clock .mc-wita { font-size: 12px; font-weight: 800; color: #3980dd; }
+        .mobile-clock .mc-utc  { font-size: 10px; font-weight: 600; color: #7fb3f5; }
+        .mobile-clock .mc-date { font-size: 10px; font-weight: 600; color: #888; margin-top: 1px; }
+
         @media screen and (max-width: 768px) {
+            .mobile-clock { display: flex; }
 
             /*Penyesuaian NAVBAR*/
             .navbar {
@@ -542,16 +578,29 @@
             <span></span>
         </button>
 
+        <!-- Jam mini hanya tampil di mobile, di samping kanan hamburger -->
+        <div class="mobile-clock">
+            <span class="mc-wita" id="mob-clock-wita">00:00:00 WITA</span>
+            <span class="mc-utc"  id="mob-clock-utc">00:00:00 UTC</span>
+            <span class="mc-date" id="mob-clock-date">-</span>
+        </div>
+
         <div class="nav-menu" id="navMenu" >
             <div class="nav-item active" onclick="showSection('home', this)">Home</div>
-            <div class="nav-item" onclick="showSection('visual', this)">Visualisasi</div>
-            <div class="nav-item" onclick="showSection('interactive', this)">Peta Interaktif</div>
-            <div class="nav-item" onclick="showSection('analisis', this)">Analisis</div>
+            <a   class="nav-item"        href="/visualisasi">Visualisasi</a>
+            <div class="nav-item"        onclick="showSection('interactive', this)">Peta Interaktif</div>
+            <a   class="nav-item"        href="/analisis">Analisis</a>
         </div>
         <div class="right-info">
             <div class="clock-box">
-                <span class="time-wita" id="clock-wita">00:00:00 WITA</span>
-                <span class="time-utc" id="clock-utc">00:00:00 UTC</span>
+                <div class="clock-row">
+                    <span class="clock-label">WITA</span>
+                    <span class="clock-time" id="clock-wita">00:00:00</span>
+                </div>
+                <div class="clock-row">
+                    <span class="clock-label">UTC</span>
+                    <span class="clock-time" id="clock-utc">00:00:00</span>
+                </div>
             </div>
             <div class="date-display" id="header-date">Memuat...</div>
         </div>
@@ -612,13 +661,14 @@
             <div class="table-overlay" id="interactive-table-box">
                 <div class="tbl-header">
                     <span id="tbl-title">Rekapitulasi Bulan Ini</span>
-                    <span style="cursor:pointer; font-size:18px;" onclick="toggleTable()">&times;</span>
+                    <span style="cursor:pointer; font-size:22px; font-weight:bold; line-height:1;" onclick="toggleTable()" title="Tutup">&#8594;</span>
                 </div>
                 <div class="tbl-content">
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th style="text-align:left" onclick="sortTable('nama_lokasi')">Kecamatan ⇅</th>
+                                <th style="text-align:left" onclick="sortTable('nama_pos')">Pos ⇅</th>
+                                <th onclick="sortTable('curah_hujan_harian')" style="color:#f1c40f;">CH Harian ⇅</th>
                                 <th onclick="sortTable('das1')">DAS1 ⇅</th>
                                 <th onclick="sortTable('das2')">DAS2 ⇅</th>
                                 <th onclick="sortTable('das3')">DAS3 ⇅</th>
@@ -627,7 +677,7 @@
                             </tr>
                         </thead>
                         <tbody id="table-body-interactive">
-                            <tr><td colspan="6" style="text-align:center; padding:20px;">Silakan pilih tanggal & klik Tampilkan Data</td></tr>
+                            <tr><td colspan="7" style="text-align:center; padding:20px;">Silakan pilih tanggal & klik Tampilkan Data</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -652,20 +702,57 @@
             const hUTC = String(now.getUTCHours()).padStart(2, '0');
             const mUTC = String(now.getUTCMinutes()).padStart(2, '0');
             const sUTC = String(now.getUTCSeconds()).padStart(2, '0');
+            const utcStr = `${hUTC}:${mUTC}:${sUTC}`;
             const optionsWITA = { timeZone: 'Asia/Makassar', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
             const timeWITA = now.toLocaleTimeString('en-GB', optionsWITA);
-            document.getElementById('clock-utc').innerText = `${hUTC}:${mUTC}:${sUTC} UTC`;
-            document.getElementById('clock-wita').innerText = `${timeWITA} WITA`;
-            const dateOptions = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
-            document.getElementById('header-date').innerText = now.toLocaleDateString('id-ID', dateOptions);
+            document.getElementById('clock-utc').innerText  = utcStr;
+            document.getElementById('clock-wita').innerText = timeWITA;
+            // Mobile clock
+            document.getElementById('mob-clock-wita').innerText = timeWITA + ' WITA';
+            document.getElementById('mob-clock-utc').innerText  = utcStr + ' UTC';
+            const dateOptions = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+            const dateStr = now.toLocaleDateString('id-ID', dateOptions);
+            document.getElementById('mob-clock-date').innerText = dateStr;
+            document.getElementById('header-date').innerText = dateStr;
         }
         setInterval(updateClocks, 1000); updateClocks();
+
+        // Handle URL hash on load (e.g. /#map from visualisasi page)
+        window.addEventListener('load', function() {
+            if (window.location.hash === '#map') {
+                document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                document.getElementById('section-interactive').classList.add('active');
+                document.querySelectorAll('.nav-item').forEach(el => {
+                    if (el.innerText.trim() === 'Peta Interaktif') el.classList.add('active');
+                });
+                setTimeout(() => { mapInteractive.invalidateSize(); if(!document.getElementById('date-picker').value) document.getElementById('date-picker').valueAsDate = new Date(); }, 300);
+            }
+        });
+
+        // Handle URL param ?s=interactive on page load
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const s = params.get('s');
+            if (s === 'interactive') {
+                document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                document.getElementById('section-interactive').classList.add('active');
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(el => { if (el.textContent.trim() === 'Peta Interaktif') el.classList.add('active'); });
+                setTimeout(() => { mapInteractive.invalidateSize(); if(!document.getElementById('date-picker').value) document.getElementById('date-picker').valueAsDate = new Date(); }, 300);
+            }
+        })();
 
         function showSection(sectionId, element) {
             document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('section-' + sectionId).classList.add('active');
             element.classList.add('active');
+            // Tutup menu mobile setelah memilih
+            const menu = document.getElementById('navMenu');
+            menu.classList.remove('active');
+            menu.style.display = '';
             if(sectionId === 'home') setTimeout(() => { mapHome.invalidateSize(); }, 200);
             if(sectionId === 'interactive') setTimeout(() => { mapInteractive.invalidateSize(); if(!document.getElementById('date-picker').value) document.getElementById('date-picker').valueAsDate = new Date(); }, 200);
         }
@@ -677,7 +764,7 @@
         }
 
         // --- FUNGSI POPUP DENGAN DATA TOTAL ---
-        function getPopupContent(nama, nilai, color, labelKategori, tanggalStr, totalBulanan) {
+        function getPopupContent(nama, nilai, color, labelKategori, tanggalStr, totalBulanan, categoryBadge) {
             var obsDate = new Date(tanggalStr);
             var strDataDate = tanggalStr;
             var strObsDate = tanggalStr;
@@ -705,6 +792,7 @@
             return `<div class="popup-header">${nama}</div>
                     <div class="popup-body">
                         <div class="rain-value" style="color:${color}">${valHarian} <span class="unit">${unit}</span></div>
+                        ${categoryBadge ? categoryBadge : ''}
                         <span class="popup-label">${labelKategori}</span>
                         
                         ${totalHtml} 
@@ -744,13 +832,36 @@
                              '#40210A';
         }
 
-        // --- WARNA KHUSUS HH (Hari Hujan) ---
         function getColorHH(d) {
             return d > 20 ? '#66FF00' : 
                    d > 10 ? '#FFFF00' : 
                    d > 1  ? '#FFA500' : 
                             '#D9DDDC';
         }
+
+        // ── FUNGSI KATEGORI CURAH HUJAN ──────────────────────────────────────
+        function getCategoryDaily(v) {
+            if (v < 1)   return null;                                   // tidak hujan
+            if (v <= 5)  return { label: 'Sangat Ringan', color: '#27ae60' };
+            if (v <= 20) return { label: 'Ringan',        color: '#27ae60' };
+            if (v <= 50) return { label: 'Sedang',        color: '#f1c40f' };
+            if (v <= 100)return { label: 'Lebat',         color: '#e67e22' };
+            if (v <= 150)return { label: 'Sangat Lebat',  color: '#e74c3c' };
+            return             { label: 'Ekstrim',        color: '#8e44ad' };
+        }
+
+        function getCategoryAccum(v) {
+            if (v <= 20)  return { label: 'Sangat Rendah', color: '#40210A' };
+            if (v <= 50)  return { label: 'Rendah',        color: '#783A14' };
+            if (v <= 100) return { label: 'Rendah',        color: '#C86400' };
+            if (v <= 150) return { label: 'Menengah',      color: '#D6AA00' };
+            if (v <= 200) return { label: 'Menengah',      color: '#E9E962' };
+            if (v <= 300) return { label: 'Menengah',      color: '#DDEECC' };
+            if (v <= 400) return { label: 'Tinggi',        color: '#99D5A0' };
+            if (v <= 500) return { label: 'Tinggi',        color: '#408040' };
+            return              { label: 'Sangat Tinggi',  color: '#1E4E1E' };
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         // --- FUNGSI GLOBAL MARKER EVENT ---
         function attachMarkerEvents(marker) {
@@ -781,6 +892,14 @@
         legendHome.addTo(mapHome);
 
         fetch('/api/dashboard-data').then(res => res.json()).then(data => {
+            // Cari pos dengan curah hujan tertinggi untuk efek pulse
+            let maxPos = null;
+            data.daily.forEach(pos => {
+                if (pos.lintang && pos.bujur) {
+                    if (!maxPos || pos.curah_hujan > maxPos.curah_hujan) maxPos = pos;
+                }
+            });
+
             data.daily.forEach(pos => {
                 if(pos.lintang && pos.bujur) {
                     let totalVal = null;
@@ -792,8 +911,27 @@
                     }
 
                     let color = getColorDaily(pos.curah_hujan);
-                    let popupHtml = getPopupContent(pos.nama_pos, pos.curah_hujan, color, "Curah Hujan", data.daily[0]?.tanggal_str || '-', null); 
-                    let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 8, weight: 1 });
+                    let popupHtml = getPopupContent(pos.nama_pos, pos.curah_hujan, color, "Curah Hujan", data.daily[0]?.tanggal_str || '-', null);
+
+                    let marker;
+                    const isPulse = maxPos && pos.nama_pos === maxPos.nama_pos && pos.curah_hujan >= 1;
+                    if (isPulse) {
+                        // Marker pulse (DivIcon) untuk titik tertinggi
+                        const pulseIcon = L.divIcon({
+                            className: '',
+                            html: `<div class="pulse-marker">
+                                     <div class="ring"  style="background:${color};opacity:0.6;"></div>
+                                     <div class="ring ring2" style="background:${color};opacity:0.4;"></div>
+                                     <div class="dot"   style="background:${color};"></div>
+                                   </div>`,
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8],
+                            popupAnchor: [0, -10]
+                        });
+                        marker = L.marker([pos.lintang, pos.bujur], { icon: pulseIcon });
+                    } else {
+                        marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 8, weight: 1 });
+                    }
                     marker.bindPopup(popupHtml, {className: 'custom-popup'});
                     attachMarkerEvents(marker); 
                     marker.addTo(mapHome);
@@ -824,221 +962,136 @@
         L.control.zoom({ position: 'topleft' }).addTo(mapInteractive);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '© OpenStreetMap & CartoDB'}).addTo(mapInteractive);
         
-        var dailyLayer = L.layerGroup().addTo(mapInteractive);
+        // Semua layer TIDAK ditambah ke peta dulu — radio-select kustom yang mengontrol
+        var dailyLayer = L.layerGroup();
         var accumLayer = L.layerGroup();
-        var das1Layer = L.layerGroup(); 
-        var das2Layer = L.layerGroup(); 
-        var das3Layer = L.layerGroup(); 
-        var hhLayer = L.layerGroup(); 
+        var das1Layer  = L.layerGroup();
+        var das2Layer  = L.layerGroup();
+        var das3Layer  = L.layerGroup();
+        var hhLayer    = L.layerGroup();
 
-        L.control.layers(null, {
-            "Hujan Harian": dailyLayer, 
-            "Akumulasi Bulanan": accumLayer,
-            "DAS 1 (Tgl 1-10)": das1Layer, 
-            "DAS 2 (Tgl 11-20)": das2Layer, 
+        const allLayers = {
+            "Hujan Harian"         : dailyLayer,
+            "Akumulasi Bulanan"    : accumLayer,
+            "DAS 1 (Tgl 1-10)"    : das1Layer,
+            "DAS 2 (Tgl 11-20)"   : das2Layer,
             "DAS 3 (Tgl 21-Akhir)": das3Layer,
-            "Hari Hujan (HH)": hhLayer 
-        }, {collapsed: false, position: 'topleft'}).addTo(mapInteractive);
+            "Hari Hujan (HH)"     : hhLayer
+        };
+        const layerNames  = Object.keys(allLayers);
+        const layerValues = Object.values(allLayers);
+        var activeLayerName = null;
+
+        function getLegendType(name) {
+            if (name === "Hujan Harian")        return 'daily';
+            if (name === "Akumulasi Bulanan")    return 'accum';
+            if (name === "DAS 1 (Tgl 1-10)")    return 'das1';
+            if (name === "DAS 2 (Tgl 11-20)")   return 'das2';
+            if (name.includes("DAS 3"))          return 'das3';
+            if (name.includes("Hari Hujan"))     return 'hh';
+            return 'daily';
+        }
+
+        // Buat layer control — semua unchecked karena tidak ada yang di peta
+        L.control.layers(null, allLayers, {collapsed: false, position: 'topleft'}).addTo(mapInteractive);
+
+        // ── RADIO-SELECT: clone semua checkbox untuk hapus listener Leaflet, lalu pasang handler kustom ──
+        setTimeout(function () {
+            var overlayDiv = document.querySelector('.leaflet-control-layers-overlays');
+            if (!overlayDiv) return;
+            var rawInputs = overlayDiv.querySelectorAll('input[type="checkbox"]');
+
+            rawInputs.forEach(function (input, idx) {
+                var clone = input.cloneNode(true);
+                clone.checked = false;
+                input.parentNode.replaceChild(clone, input);
+            });
+
+            // Handler terpasang ke parent agar tetap valid setelah replace
+            overlayDiv.addEventListener('change', function (e) {
+                if (e.target.type !== 'checkbox') return;
+                var inputs = Array.from(overlayDiv.querySelectorAll('input[type="checkbox"]'));
+                var clickedIdx = inputs.indexOf(e.target);
+                if (clickedIdx === -1) return;
+
+                if (e.target.checked) {
+                    // Uncheck & remove semua layer lain
+                    inputs.forEach(function (inp, i) {
+                        if (i !== clickedIdx) {
+                            inp.checked = false;
+                            mapInteractive.removeLayer(layerValues[i]);
+                        }
+                    });
+                    // Tambahkan layer yang dipilih
+                    mapInteractive.addLayer(layerValues[clickedIdx]);
+                    activeLayerName = layerNames[clickedIdx];
+                    updateLegend(getLegendType(activeLayerName));
+                } else {
+                    // User uncheck layer aktif — hapus dari peta
+                    mapInteractive.removeLayer(layerValues[clickedIdx]);
+                    activeLayerName = null;
+                }
+            });
+        }, 300);
         
         // --- LEGENDA INTERAKTIF DINAMIS ---
-        var legendInteractive = L.control({position: 'bottomleft'}); // Tetap di Kiri
-        
+        var legendInteractive = L.control({position: 'bottomleft'});
+
         legendInteractive.onAdd = function (map) {
-            var div = L.DomUtil.create('div', 'legend-table-style'); 
-            div.id = 'dynamic-legend'; // ID untuk update konten
+            var div = L.DomUtil.create('div', 'legend-table-style');
+            div.id = 'dynamic-legend';
+            // Kotak gambar — src akan diisi oleh updateLegend()
+            div.innerHTML = '<img id="legend-img" src="" alt="Legenda" />';
             return div;
-        }
+        };
         legendInteractive.addTo(mapInteractive);
 
-        // FUNGSI UPDATE KONTEN LEGENDA BERDASARKAN TIPE
+        // ─── PETA GAMBAR LEGENDA (sesuaikan nama file di folder static/legends/) ───
+        const LEGEND_IMAGES = {
+            'daily' : '/static/legends/legend_daily.png',
+            'accum' : '/static/legends/legend_accum.png',
+            'das1'  : '/static/legends/legend_das1.png',
+            'das2'  : '/static/legends/legend_das2.png',
+            'das3'  : '/static/legends/legend_das3.png',
+            'hh'    : '/static/legends/legend_hh.png'
+        };
+
+        // FUNGSI UPDATE GAMBAR LEGENDA
         function updateLegend(type) {
-            const div = document.getElementById('dynamic-legend');
-            if(!div) return;
-
-            let content = '';
-            
-            if (type === 'daily') {
-                // LEGENDA HUJAN HARIAN
-                content = `
-            <div style="display: flex; background: white; border: 2px solid black; font-family: sans-serif; width: fit-content; overflow: hidden;">
-                
-                <div style="border-right: 1px solid black;">
-                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:11px; background:#f0f0f0;">AKUMULASI CURAH HUJAN (mm) :</div>
-                    <table style="width:100%; border-collapse:collapse; font-size:10px; text-align:center;">
-                        <tr>
-                            <td style="background:#40210A; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">0 - 20</td>
-                            <td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 6px;">RENDAH</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#783A14; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">20 - 50</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#C86400; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">50 - 100</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#D6AA00; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">100 - 150</td>
-                            <td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 6px;">MENENGAH</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#E9E962; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">150 - 200</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#DDEECC; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">200 - 300</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#99D5A0; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">300 - 400</td>
-                            <td rowspan="2" style="font-weight:bold; border-bottom:1px solid black; padding:0 6px;">TINGGI</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#408040; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">400 - 500</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#1E4E1E; width:25px; height:14px; border-right:1px solid black;"></td>
-                            <td style="border-right:1px solid black; padding:2px 6px;">> 500</td>
-                            <td style="font-weight:bold; padding:0 6px; font-size:9px;">SANGAT TINGGI</td>
-                        </tr>
-                    </table>
-                </div>
-
-                <div style="border-right: 1px solid black;">
-                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:11px; background:#f0f0f0;">CH Dasarian (mm) :</div>
-                    <table style="width:100%; border-collapse:collapse; font-size:10px; text-align:center;">
-                        <tr>
-                            <td style="background:#40210A; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">0 - 10</td>
-                            
-                        </tr>
-                        <tr>
-                            <td style="background:#783A14; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">10 - 20</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#C86400; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">20 - 50</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#D6AA00; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">50 - 75</td>
-                            
-                        </tr>
-                        <tr>
-                            <td style="background:#E9E962; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">75 - 100</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#DDEECC; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">100 - 150</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#99D5A0; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">150 - 200</td>
-                            
-                        </tr>
-                        <tr>
-                            <td style="background:#408040; width:25px; height:14px; border-right:1px solid black; border-bottom:1px solid black;"></td>
-                            <td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 6px;">200 - 300</td>
-                        </tr>
-                        <tr>
-                            <td style="background:#1E4E1E; width:25px; height:14px; border-right:1px solid black;"></td>
-                            <td style="border-right:1px solid black; padding:2px 6px;">> 300</td>
-            
-                        </tr>
-                    </table>
-                </div>
-
-            </div>`;
-            } else if (type === 'hh') {
-                // LEGENDA HARI HUJAN (HH)
-                content = `
-                <div style="background:white; border:1px solid black; padding:0; font-family:sans-serif;">
-                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:12px;">HARI HUJAN (Hari) :</div>
-                    <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
-                        <tr><td style="background:#D9DDDC; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">0 - 5</td></tr>
-                        <tr><td style="background:#32CD32; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">6 - 10</td></tr>
-                        <tr><td style="background:#FFD700; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">11 - 15</td></tr>
-                        <tr><td style="background:#FFA500; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">16 - 20</td></tr>
-                        <tr><td style="background:#FF0000; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">21 - 25</td></tr>
-                        <tr><td style="background:#800080; width:30px; height:15px; border-right:1px solid black;"></td><td style="border-right:1px solid black; padding:2px 8px;">> 25</td></tr>
-                    </table>
-                </div>`;
-            } else if (type === 'das') {
-                // LEGENDA KHUSUS DAS (Skala Lebih Kecil)
-                content = `
-                <div style="background:white; border:1px solid black; padding:0; font-family:sans-serif;">
-                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:12px;">CURAH HUJAN DASARIAN (mm) :</div>
-                    <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
-                        <tr><td style="background:#40210A; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">0 - 10</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">RENDAH</td></tr>
-                        <tr><td style="background:#783A14; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">11 - 20</td></tr>
-                        <tr><td style="background:#C86400; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">21 - 50</td></tr>
-                        <tr><td style="background:#D6AA00; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">51 - 75</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">MENENGAH</td></tr>
-                        <tr><td style="background:#E9E962; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">76 - 100</td></tr>
-                        <tr><td style="background:#DDEECC; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">101 - 150</td></tr>
-                        <tr><td style="background:#99D5A0; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">151 - 200</td><td rowspan="2" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">TINGGI</td></tr>
-                        <tr><td style="background:#408040; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">201 - 300</td></tr>
-                        <tr><td style="background:#1E4E1E; width:30px; height:15px; border-right:1px solid black;"></td><td style="border-right:1px solid black; padding:2px 8px;">> 300</td><td style="font-weight:bold; padding:0 8px;">SANGAT TINGGI</td></tr>
-                    </table>
-                </div>`;
-            } else {
-                // LEGENDA AKUMULASI (Skala Besar)
-                content = `
-                <div style="background:white; border:1px solid black; padding:0; font-family:sans-serif;">
-                    <div style="text-align:center; font-weight:bold; border-bottom:1px solid black; padding:5px; font-size:12px;">AKUMULASI CURAH HUJAN (mm) :</div>
-                    <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:center;">
-                        <tr><td style="background:#40210A; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">0 - 20</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">RENDAH</td></tr>
-                        <tr><td style="background:#783A14; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">21 - 50</td></tr>
-                        <tr><td style="background:#C86400; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">51 - 100</td></tr>
-                        <tr><td style="background:#D6AA00; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">101 - 150</td><td rowspan="3" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">MENENGAH</td></tr>
-                        <tr><td style="background:#E9E962; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">151 - 200</td></tr>
-                        <tr><td style="background:#DDEECC; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">201 - 300</td></tr>
-                        <tr><td style="background:#99D5A0; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">301 - 400</td><td rowspan="2" style="font-weight:bold; border-bottom:1px solid black; padding:0 8px;">TINGGI</td></tr>
-                        <tr><td style="background:#408040; width:30px; height:15px; border-right:1px solid black; border-bottom:1px solid black;"></td><td style="border-right:1px solid black; border-bottom:1px solid black; padding:2px 8px;">401 - 500</td></tr>
-                        <tr><td style="background:#1E4E1E; width:30px; height:15px; border-right:1px solid black;"></td><td style="border-right:1px solid black; padding:2px 8px;">> 500</td><td style="font-weight:bold; padding:0 8px;">SANGAT TINGGI</td></tr>
-                    </table>
-                </div>`;
-            }
-            div.innerHTML = content;
+            const img = document.getElementById('legend-img');
+            if (!img) return;
+            img.src = LEGEND_IMAGES[type] || LEGEND_IMAGES['daily'];
         }
-
-        // EVENT LISTENER: GANTI LEGENDA SAAT LAYER BERUBAH
-        mapInteractive.on('baselayerchange', function(e) {
-            if (e.name === "Hujan Harian") {
-                updateLegend('daily');
-            } else if (e.name.includes("DAS")) { // Deteksi Layer DAS
-                updateLegend('das');
-            } else if (e.name.includes("Hari Hujan")) { // Deteksi Layer HH
-                updateLegend('hh');
-            } else {
-                updateLegend('accum'); // Untuk Akumulasi Bulanan
-            }
-        });
 
         // SET LEGENDA AWAL (HARIAN)
         updateLegend('daily');
-        
+
+        // (blok legenda lama sudah dihapus — digantikan gambar di atas)
+
         function toggleTable() {
             document.getElementById('interactive-table-box').classList.toggle('hidden');
         }
 
         let globalTableData = [];
+        let globalDailyData = [];
         let sortDirection = {};
 
-        function renderTable(data) {
+        function renderTable(data, dailyData) {
             const tbody = document.getElementById('table-body-interactive');
             tbody.innerHTML = '';
             if (data && data.length > 0) {
                 data.forEach(row => {
-                    // Update: Format angka dengan f() untuk desimal
                     const f = (n) => formatAngka(n);
+                    // Cari nilai CH harian untuk pos ini
+                    let chHarian = '-';
+                    if (dailyData) {
+                        const match = dailyData.find(d => d.nama_pos && d.nama_pos.toLowerCase() === (row.nama_pos||'').toLowerCase());
+                        if (match) chHarian = f(match.curah_hujan);
+                    }
                     const tr = `<tr>
-                            <td>${row.nama_pos}</td> <td>${f(row.das1)}</td>
+                            <td>${row.nama_pos}</td>
+                            <td style="color:#f1c40f;font-weight:bold;">${chHarian}</td>
+                            <td>${f(row.das1)}</td>
                             <td>${f(row.das2)}</td>
                             <td>${f(row.das3)}</td>
                             <td style="font-weight:bold; color:#fff;">${f(row.total)}</td>
@@ -1048,7 +1101,7 @@
                 });
                 document.getElementById('interactive-table-box').classList.remove('hidden');
             } else {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Data tidak ditemukan.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Data tidak ditemukan.</td></tr>';
             }
         }
 
@@ -1061,7 +1114,7 @@
                 if (typeof valB === 'string') valB = valB.toLowerCase();
                 if (sortDirection[key] === 'asc') { return valA > valB ? 1 : -1; } else { return valA < valB ? 1 : -1; }
             });
-            renderTable(globalTableData);
+            renderTable(globalTableData, globalDailyData);
         }
 
         function loadInteractiveData() {
@@ -1082,8 +1135,13 @@
             hhLayer.clearLayers();
 
             globalTableData = []; sortDirection = {};
-            const options = { month: 'long', year: 'numeric' };
-            document.getElementById('tbl-title').innerText = "Rekap " + selected.toLocaleDateString('id-ID', options);
+            // Judul: "Rekapitulasi {Bulan} {Tahun}  Update: {tgl dipilih}"
+            const tglAngka  = selected.getDate();
+            const namaBulan = selected.toLocaleDateString('id-ID', { month: 'long' });
+            const tahun     = selected.getFullYear();
+            document.getElementById('tbl-title').innerHTML =
+                `Rekapitulasi ${namaBulan} ${tahun} ` +
+                `<span style="font-weight:400; font-size:0.6em; opacity:0.8;">Update: ${tglAngka} ${namaBulan} ${tahun}</span>`;
 
             fetch(`/api/interactive-data?date=${dateVal}`).then(res => res.json()).then(data => {
                 document.getElementById('loading-text').style.display = 'none';
@@ -1107,7 +1165,11 @@
 
                         // Layer Daily
                         let color = getColorDaily(pos.curah_hujan);
-                        let popupHtml = getPopupContent(pos.nama_pos, pos.curah_hujan, color, "Curah Hujan", dateVal, totalVal);
+                        let catDaily = getCategoryDaily(pos.curah_hujan);
+                        let catBadgeDaily = catDaily
+                            ? `<div style="display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:20px;background:${catDaily.color};color:#fff;font-size:11px;font-weight:700;">${catDaily.label}</div>`
+                            : '';
+                        let popupHtml = getPopupContent(pos.nama_pos, pos.curah_hujan, color, "Curah Hujan", dateVal, totalVal, catBadgeDaily);
                         let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 8, weight: 1 });
                         marker.bindPopup(popupHtml, {className: 'custom-popup'});
                         attachMarkerEvents(marker); 
@@ -1129,7 +1191,9 @@
                 data.accumulation.forEach(pos => {
                     if(pos.lintang && pos.bujur) {
                         let color = getColorAccum(pos.total_akumulasi);
-                        let popupHtml = getPopupContent(pos.nama_pos, pos.total_akumulasi, color, "Total Akumulasi", `s.d. ${dateVal}`, null);
+                        let catAccum = getCategoryAccum(pos.total_akumulasi);
+                        let catBadgeAccum = `<div style="display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:20px;background:${catAccum.color};color:#fff;font-size:11px;font-weight:700;border:1px solid rgba(0,0,0,0.2);">${catAccum.label}</div>`;
+                        let popupHtml = getPopupContent(pos.nama_pos, pos.total_akumulasi, color, "Total Akumulasi", `s.d. ${dateVal}`, null, catBadgeAccum);
                         let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 10, weight: 1 });
                         marker.bindPopup(popupHtml, {className: 'custom-popup'});
                         attachMarkerEvents(marker); 
@@ -1141,28 +1205,68 @@
                 if (data.das_map) {
                     data.das_map.forEach(pos => {
                         if(pos.lintang && pos.bujur) {
-                            // --- DAS 1 ---
+
+                            // Helper: buat baris titik DAS lain (horizontal)
+                            function getDasDots(activeLabel, v1, v2, v3) {
+                                // activeLabel: 'das1'|'das2'|'das3'
+                                // Warna sesuai nilai, merah = active, biru = lainnya
+                                const dots = [
+                                    { key: 'das1', val: v1, label: 'DAS1' },
+                                    { key: 'das2', val: v2, label: 'DAS2' },
+                                    { key: 'das3', val: v3, label: 'DAS3' },
+                                ];
+                                return `<div style="display:flex;justify-content:center;gap:12px;margin-top:8px;padding-top:8px;border-top:1px dashed #eee;">` +
+                                    dots.filter(d => d.key !== activeLabel).map(d => {
+                                        const dotColor = d.key === activeLabel ? '#FF0000' : '#3498db';
+                                        return `<div style="text-align:center;">
+                                            <div style="width:12px;height:12px;border-radius:50%;background:${dotColor};margin:0 auto 2px;border:1.5px solid #fff;box-shadow:0 0 3px rgba(0,0,0,0.3);"></div>
+                                            <span style="font-size:10px;color:#555;font-weight:600;">${d.label}</span><br>
+                                            <span style="font-size:11px;color:#333;font-weight:700;">${formatAngka(d.val)}<span style="font-size:9px;color:#999;">mm</span></span>
+                                        </div>`;
+                                    }).join('') +
+                                `</div>`;
+                            }
+
+                            // --- DAS 1 (titik merah=DAS1, titik biru=DAS2 & DAS3) ---
                             let color1 = getColorDAS(pos.das1_val);
-                            let popup1 = getPopupContent(pos.nama_pos, pos.das1_val, color1, "Total DAS 1", `s.d. ${dateVal}`, null);
+                            let popup1 = `<div class="popup-header">${pos.nama_pos}</div>
+                                <div class="popup-body">
+                                    <div class="rain-value" style="color:${color1}">${formatAngka(pos.das1_val)} <span class="unit">mm</span></div>
+                                    <span class="popup-label">Total DAS 1</span>
+                                    ${getDasDots('das1', pos.das1_val, pos.das2_val, pos.das3_val)}
+                                    <div style="margin-top:8px;font-size:10px;color:#999;font-style:italic;">s.d. ${dateVal}</div>
+                                </div>`;
                             let marker1 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color1, fillOpacity: 0.9, radius: 9, weight: 1 });
                             marker1.bindPopup(popup1, {className: 'custom-popup'});
-                            attachMarkerEvents(marker1); 
+                            attachMarkerEvents(marker1);
                             marker1.addTo(das1Layer);
 
-                            // --- DAS 2 ---
+                            // --- DAS 2 (titik merah=DAS2) ---
                             let color2 = getColorDAS(pos.das2_val);
-                            let popup2 = getPopupContent(pos.nama_pos, pos.das2_val, color2, "Total DAS 2", `s.d. ${dateVal}`, null);
+                            let popup2 = `<div class="popup-header">${pos.nama_pos}</div>
+                                <div class="popup-body">
+                                    <div class="rain-value" style="color:${color2}">${formatAngka(pos.das2_val)} <span class="unit">mm</span></div>
+                                    <span class="popup-label">Total DAS 2</span>
+                                    ${getDasDots('das2', pos.das1_val, pos.das2_val, pos.das3_val)}
+                                    <div style="margin-top:8px;font-size:10px;color:#999;font-style:italic;">s.d. ${dateVal}</div>
+                                </div>`;
                             let marker2 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color2, fillOpacity: 0.9, radius: 9, weight: 1 });
                             marker2.bindPopup(popup2, {className: 'custom-popup'});
-                            attachMarkerEvents(marker2); 
+                            attachMarkerEvents(marker2);
                             marker2.addTo(das2Layer);
 
-                            // --- DAS 3 ---
+                            // --- DAS 3 (titik merah=DAS3) ---
                             let color3 = getColorDAS(pos.das3_val);
-                            let popup3 = getPopupContent(pos.nama_pos, pos.das3_val, color3, "Total DAS 3", `s.d. ${dateVal}`, null);
+                            let popup3 = `<div class="popup-header">${pos.nama_pos}</div>
+                                <div class="popup-body">
+                                    <div class="rain-value" style="color:${color3}">${formatAngka(pos.das3_val)} <span class="unit">mm</span></div>
+                                    <span class="popup-label">Total DAS 3</span>
+                                    ${getDasDots('das3', pos.das1_val, pos.das2_val, pos.das3_val)}
+                                    <div style="margin-top:8px;font-size:10px;color:#999;font-style:italic;">s.d. ${dateVal}</div>
+                                </div>`;
                             let marker3 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color3, fillOpacity: 0.9, radius: 9, weight: 1 });
                             marker3.bindPopup(popup3, {className: 'custom-popup'});
-                            attachMarkerEvents(marker3); 
+                            attachMarkerEvents(marker3);
                             marker3.addTo(das3Layer);
                         }
                     });
@@ -1171,9 +1275,10 @@
                 // RENDER TABLE
                 if (data.table_data) {
                     globalTableData = data.table_data;
-                    renderTable(globalTableData);
+                    globalDailyData = data.daily || [];
+                    renderTable(globalTableData, globalDailyData);
                 } else {
-                    renderTable([]);
+                    renderTable([], globalDailyData);
                 }
             }).catch(err => {
                 console.error(err);
