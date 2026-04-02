@@ -1,0 +1,16 @@
+# Mengabaikan file hasil compile Python
+__pycache__/
+*.pyc
+
+# Mengabaikan folder Virtual Environment (karena ukurannya sangat besar)
+venv/
+.venv/
+env/
+
+# Mengabaikan file rahasia/konfigurasi lokal
+.env
+instance/
+
+# Mengabaikan file sampah sistem operasi
+.DS_Store
+Thumbs.db

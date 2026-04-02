@@ -18,9 +18,149 @@ app = Flask(__name__)
 DB_URI = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:***REMOVED***@ep-steep-grass-a1183odj-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
 engine = create_engine(DB_URI, client_encoding='utf8')
 
+# --- DATABASE KEDUA (Historis — untuk Visualisasi & Analisis) ---
+DB_URI_2 = os.environ.get('DATABASE_URL_2', 'postgresql://neondb_owner:***REMOVED***@ep-empty-cake-a1t7b4fh-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
+engine2 = create_engine(DB_URI_2, client_encoding='utf8')
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/visualisasi')
+def visualisasi():
+    return render_template('visualisasi.html')
+
+@app.route('/analisis')
+def analisis():
+    return render_template('analisis.html')
+
+# ==============================================================================
+# API VISUALISASI — Database Historis
+# ==============================================================================
+
+@app.route('/api/viz/wilayah')
+def viz_wilayah():
+    try:
+        with engine2.connect() as conn:
+            df = pd.read_sql(
+                "SELECT id_wilayah, nama_wilayah FROM wilayah WHERE tipe='KABUPATEN' AND aktif=true ORDER BY nama_wilayah",
+                conn)
+        return jsonify(df.to_dict(orient='records'))
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/api/viz/pos')
+def viz_pos():
+    wilayah_id = request.args.get('wilayah_id')
+    try:
+        with engine2.connect() as conn:
+            if wilayah_id:
+                q = text("SELECT id_kecamatan, nama_kecamatan FROM kecamatan WHERE aktif=true AND id_wilayah=:wid ORDER BY nama_kecamatan")
+                df = pd.read_sql(q, conn, params={'wid': int(wilayah_id)})
+            else:
+                df = pd.read_sql("SELECT id_kecamatan, nama_kecamatan FROM kecamatan WHERE aktif=true ORDER BY nama_kecamatan", conn)
+        return jsonify(df.to_dict(orient='records'))
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/api/viz/tahun')
+def viz_tahun():
+    try:
+        with engine2.connect() as conn:
+            df = pd.read_sql("SELECT DISTINCT tahun FROM curah_hujan_harian ORDER BY tahun DESC", conn)
+        return jsonify(df['tahun'].tolist())
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/api/viz/data-kabupaten')
+def viz_data_kabupaten():
+    """Agregat per pos dalam satu kabupaten, atau per kabupaten jika wilayah_id=all."""
+    wilayah_id = request.args.get('wilayah_id')
+    tahun  = request.args.get('tahun',  2026)
+    bulan  = request.args.get('bulan',  1)
+    try:
+        with engine2.connect() as conn:
+            if wilayah_id and wilayah_id != 'all':
+                q = text("""
+                    SELECT k.nama_kecamatan AS label,
+                        ROUND(SUM(CASE WHEN c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS total,
+                        ROUND(SUM(CASE WHEN c.hari <= 10 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das1,
+                        ROUND(SUM(CASE WHEN c.hari BETWEEN 11 AND 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das2,
+                        ROUND(SUM(CASE WHEN c.hari > 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das3,
+                        COUNT(CASE WHEN c.curah_hujan >= 1 AND c.curah_hujan < 8888 THEN 1 END) AS hh
+                    FROM curah_hujan_harian c
+                    JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
+                    WHERE k.id_wilayah = :wid AND c.tahun = :thn AND c.bulan = :bln
+                    GROUP BY k.nama_kecamatan ORDER BY total DESC
+                """)
+                df = pd.read_sql(q, conn, params={'wid': int(wilayah_id), 'thn': int(tahun), 'bln': int(bulan)})
+            else:
+                q = text("""
+                    SELECT w.nama_wilayah AS label,
+                        ROUND(SUM(CASE WHEN c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS total,
+                        ROUND(SUM(CASE WHEN c.hari <= 10 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das1,
+                        ROUND(SUM(CASE WHEN c.hari BETWEEN 11 AND 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das2,
+                        ROUND(SUM(CASE WHEN c.hari > 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das3,
+                        COUNT(CASE WHEN c.curah_hujan >= 1 AND c.curah_hujan < 8888 THEN 1 END) AS hh
+                    FROM curah_hujan_harian c
+                    JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
+                    JOIN wilayah w ON k.id_wilayah = w.id_wilayah
+                    WHERE c.tahun = :thn AND c.bulan = :bln
+                    GROUP BY w.nama_wilayah ORDER BY total DESC
+                """)
+                df = pd.read_sql(q, conn, params={'thn': int(tahun), 'bln': int(bulan)})
+        return jsonify(df.fillna(0).to_dict(orient='records'))
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/api/viz/data-pos')
+def viz_data_pos():
+    """Data harian satu pos dalam satu bulan, termasuk rekap dasarian."""
+    kecamatan_id = request.args.get('kecamatan_id')
+    tahun  = request.args.get('tahun',  2026)
+    bulan  = request.args.get('bulan',  1)
+    if not kecamatan_id:
+        return jsonify({'error': 'kecamatan_id diperlukan'})
+    try:
+        with engine2.connect() as conn:
+            # Data harian
+            q_daily = text("""
+                SELECT c.hari, c.tanggal::text AS tanggal, c.curah_hujan, c.keterangan,
+                       k.nama_kecamatan, w.nama_wilayah
+                FROM curah_hujan_harian c
+                JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
+                JOIN wilayah w ON k.id_wilayah = w.id_wilayah
+                WHERE c.id_kecamatan = :kid AND c.tahun = :thn AND c.bulan = :bln
+                ORDER BY c.hari
+            """)
+            df_d = pd.read_sql(q_daily, conn, params={'kid': int(kecamatan_id), 'thn': int(tahun), 'bln': int(bulan)})
+
+            # Rekap dasarian
+            q_das = text("""
+                SELECT
+                    CASE
+                        WHEN hari <= 10 THEN 'das1'
+                        WHEN hari BETWEEN 11 AND 20 THEN 'das2'
+                        ELSE 'das3'
+                    END AS dasarian,
+                    ROUND(SUM(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE 0 END)::numeric,1) AS total,
+                    MAX(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE NULL END) AS maks,
+                    (array_agg(hari ORDER BY curah_hujan DESC NULLS LAST))[1] AS hari_maks,
+                    (array_agg(tanggal::text ORDER BY curah_hujan DESC NULLS LAST))[1] AS tgl_maks,
+                    COUNT(CASE WHEN curah_hujan >= 1 AND curah_hujan < 8888 THEN 1 END) AS hh,
+                    COUNT(CASE WHEN curah_hujan < 1 OR curah_hujan IS NULL THEN 1 END) AS hth
+                FROM curah_hujan_harian
+                WHERE id_kecamatan = :kid AND tahun = :thn AND bulan = :bln
+                GROUP BY dasarian ORDER BY dasarian
+            """)
+            df_das = pd.read_sql(q_das, conn, params={'kid': int(kecamatan_id), 'thn': int(tahun), 'bln': int(bulan)})
+
+        return jsonify({
+            'daily': df_d.fillna(0).to_dict(orient='records'),
+            'dasarian': df_das.fillna(0).to_dict(orient='records')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 # ==============================================================================
 # API 1: DATA CUACA BMKG
