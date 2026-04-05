@@ -100,6 +100,69 @@
         .empty-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
         .empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }
 
+        /* ── HEATMAP STYLES ── */
+        .heatmap-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+        .heatmap-table th { background: #2c3e50; color: #ecf0f1; padding: 6px 10px; text-align: center; font-weight: 600; white-space: nowrap; }
+        .heatmap-table th.row-label { text-align: left; min-width: 120px; }
+        .heatmap-table td { padding: 0; height: 36px; text-align: center; cursor: default; transition: opacity .15s; position: relative; }
+        .heatmap-table td:hover { opacity: .85; outline: 2px solid #2c3e50; z-index: 2; }
+        .hm-cell-val { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.9); text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+        .hm-row-label { text-align: left; padding: 4px 10px; background: #f8f9fa; font-weight: 600; font-size: 12px; color: #2c3e50; white-space: nowrap; border-right: 2px solid #dee2e6; }
+
+        /* ── STAT DASHBOARD ── */
+        .stat-dashboard {
+            background: white; border-radius: 12px; padding: 22px 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.07); margin-bottom: 24px;
+        }
+        .stat-dashboard-title {
+            text-align: center; font-size: 16px; font-weight: 700; color: #2c3e50;
+            margin: 0 0 4px;
+        }
+        .stat-dashboard-sub {
+            text-align: center; font-size: 13px; color: #7f8c8d; margin-bottom: 18px;
+        }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .stat-card {
+            background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 10px;
+            padding: 16px 18px; text-align: center; position: relative;
+            transition: box-shadow .2s;
+        }
+        .stat-card:hover { box-shadow: 0 4px 12px rgba(52,152,219,.15); border-color: #3498db; }
+        .stat-card .sc-icon {
+            font-size: 22px; margin-bottom: 6px; display: block;
+        }
+        .stat-card .sc-label {
+            font-size: 11px; font-weight: 700; color: #7f8c8d;
+            text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+        }
+        .stat-card .sc-val {
+            font-size: 28px; font-weight: 800; color: #2c3e50; line-height: 1.1;
+        }
+        .stat-card .sc-unit {
+            font-size: 12px; color: #95a5a6; margin-top: 3px;
+        }
+        .stat-card .sc-hint {
+            font-size: 10px; color: #bdc3c7; margin-top: 6px; line-height: 1.4;
+        }
+        /* accent strip on left */
+        .stat-card::before {
+            content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+            width: 4px; border-radius: 0 3px 3px 0; background: #3498db;
+        }
+        .stat-card.green::before  { background: #27ae60; }
+        .stat-card.orange::before { background: #e67e22; }
+        .stat-card.red::before    { background: #e74c3c; }
+        .stat-card.purple::before { background: #9b59b6; }
+        .stat-card.teal::before   { background: #1abc9c; }
+        @media (max-width: 768px) {
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-card .sc-val { font-size: 22px; }
+        }
+
         @media (max-width: 768px) {
             .summary-row { grid-template-columns: repeat(2,1fr); }
             .filter-row  { flex-direction: column; }
@@ -146,7 +209,13 @@
 
     <div class="filter-card">
         <h3>Filter Data</h3>
-        <div class="filter-row">
+        <div class="view-toggle" style="margin-bottom: 24px;">
+            <button class="vt-btn active" id="btn-f-bulanan" onclick="setFilterType('bulanan')">📅 Bulanan</button>
+            <button class="vt-btn" id="btn-f-tahunan" onclick="setFilterType('tahunan')">📆 Tahunan</button>
+            <button class="vt-btn" id="btn-f-10tahunan" onclick="setFilterType('10tahunan')">📊 Per dekade</button>
+        </div>
+
+        <div class="filter-row" id="filter-bulanan">
             <div class="filter-group">
                 <label>Kabupaten:</label>
                 <select id="sel-kabupaten" onchange="onKabupatenChange()">
@@ -176,6 +245,32 @@
             </div>
             <button class="btn-tampilkan" onclick="tampilkan()">Tampilkan</button>
         </div>
+        <div id="filter-tahunan" style="display:none;">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Kabupaten:</label>
+                    <select id="sel-kab-t" onchange="onKabTahunanChange()">
+                        <option value="all">-- SEMUA KABUPATEN --</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Pos Hujan:</label>
+                    <select id="sel-pos-t">
+                        <option value="">-- SEMUA POS (REKAP KAB) --</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Tahun:</label>
+                    <select id="sel-thn-t"></select>
+                </div>
+                <button class="btn-tampilkan" onclick="tampilkanTahunan()">Tampilkan</button>
+            </div>
+        </div>
+        <div id="filter-10tahunan" style="display:none; text-align: center; padding: 30px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #bdc3c7; color: #7f8c8d;">
+            <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
+            <strong style="font-size: 14px; color: #2c3e50;">Filter 10 Tahunan</strong><br>
+            <span style="font-size: 12px;">(Coming Soon) Form untuk filter data 10 tahunan (dekadal) akan ditempatkan di sini.</span>
+        </div>
     </div>
 
     <div class="summary-row" id="summary-cards" style="display:none;">
@@ -186,8 +281,8 @@
     </div>
 
     <div class="chart-card" id="chart1-card">
-        <div class="chart-title" id="chart1-title">Perbandingan Curah Hujan</div>
-        <div class="chart-sub"  id="chart1-sub">Pilih filter dan klik Tampilkan</div>
+        <div class="chart-title" id="chart1-title">Monitoring Curah Hujan</div>
+        <div class="chart-sub"  id="chart1-sub">Pilih data dan klik Tampilkan</div>
         <div class="chart-toolbar"><button class="btn-download" onclick="downloadChart('chart1','grafik-perbandingan')">⬇ Unduh Gambar</button></div>
         <canvas id="chart1" height="90"></canvas>
         <div class="das-row" id="das-row-1" style="display:none;">
@@ -230,6 +325,9 @@
         </div>
 
         <div id="view-tabel" style="display:none;">
+            <div class="chart-toolbar">
+                <button class="btn-download" onclick="downloadTable()">⬇ Unduh CSV</button>
+            </div>
             <div class="data-tbl-wrap">
                 <table class="data-tbl"><thead><tr><th>Tanggal</th><th>CH (mm)</th><th>Keterangan</th><th>Kategori</th></tr></thead>
                 <tbody id="daily-tbody"></tbody></table>
@@ -243,6 +341,122 @@
                     <thead><tr><th>Dasarian</th><th>Total Hujan (mm)</th><th>Hujan Maks (mm) &amp; Tanggal</th><th>Hari Hujan</th><th>Hari Tidak Hujan</th></tr></thead>
                     <tbody id="das-tbody"></tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAHUNAN CHART A — Heatmap / Multi-Line
+         ══════════════════════════════════════════════════════════ -->
+    <div class="chart-card" id="thn-chartA-card" style="display:none;">
+        <div class="chart-title" id="thn-chartA-title">Pola Curah Hujan Tahunan</div>
+        <div class="chart-sub"  id="thn-chartA-sub">—</div>
+
+        <!-- Metric toggle -->
+        <div class="view-toggle" style="margin-bottom:8px;">
+            <button class="vt-btn active" id="thn-m-total"  onclick="setThnMetric('total')">📦 Akumulasi CH</button>
+            <button class="vt-btn"        id="thn-m-maks"   onclick="setThnMetric('maks')">🔺 Hujan Maks</button>
+        </div>
+        <!-- Chart type toggle -->
+        <div class="view-toggle">
+            <button class="vt-btn active" id="thn-t-heatmap" onclick="setThnChart('heatmap')">🟩 Heatmap</button>
+            <button class="vt-btn"        id="thn-t-line"    onclick="setThnChart('line')">〰 Grafik Garis</button>
+        </div>
+
+        <div class="chart-toolbar">
+            <button class="btn-download" onclick="downloadThnA()">⬇ Unduh Gambar</button>
+        </div>
+
+        <!-- Heatmap view -->
+        <div id="thn-view-heatmap" style="overflow-x:auto;">
+            <div id="thn-heatmap-wrap"></div>
+            <div id="thn-heatmap-legend" style="display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:6px;font-size:11px;color:#555;">
+                <span>Rendah</span>
+                <div id="thn-legend-bar" style="width:160px;height:12px;border-radius:3px;background:linear-gradient(to right,#440154,#31688e,#35b779,#fde725);"></div>
+                <span>Tinggi</span>
+            </div>
+        </div>
+        <!-- Line chart view -->
+        <div id="thn-view-line" style="display:none;">
+            <canvas id="thn-line-canvas" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAHUNAN CHART B — Distribusi bulanan (pos terpilih)
+         ══════════════════════════════════════════════════════════ -->
+    <div class="chart-card" id="thn-chartB-card" style="display:none;">
+        <div class="chart-title" id="thn-chartB-title">Distribusi Curah Hujan Bulanan</div>
+        <div class="chart-sub"  id="thn-chartB-sub">—</div>
+
+        <!-- Metric toggle B -->
+        <div class="view-toggle">
+            <button class="vt-btn active" id="thn-b-total"  onclick="setThnBMetric('total')">📦 Akumulasi</button>
+            <button class="vt-btn"        id="thn-b-maks"   onclick="setThnBMetric('maks')">🔺 Hujan Maks</button>
+            <button class="vt-btn"        id="thn-b-rerata" onclick="setThnBMetric('rerata')">≈ Rerata CH</button>
+            <button class="vt-btn"        id="thn-b-hh"     onclick="setThnBMetric('hh')">🌧 Hari Hujan</button>
+        </div>
+
+        <div class="chart-toolbar">
+            <button class="btn-download" onclick="downloadThnBarBWithLabels()">⬇ Unduh Gambar (dengan nilai)</button>
+        </div>
+        <canvas id="thn-bar-canvas" height="70"></canvas>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         TAHUNAN STAT DASHBOARD — Statistik pos terpilih
+         ══════════════════════════════════════════════════════════ -->
+    <div class="stat-dashboard" id="thn-stat-card" style="display:none;">
+        <div class="stat-dashboard-title" id="thn-stat-title">Statistik Curah Hujan Tahunan</div>
+        <div class="stat-dashboard-sub"   id="thn-stat-sub">—</div>
+        <div class="stat-grid">
+            <!-- 1 Total -->
+            <div class="stat-card">
+                <span class="sc-icon">🌧</span>
+                <div class="sc-label">Total Hujan 1 Tahun</div>
+                <div class="sc-val" id="st-total">—</div>
+                <div class="sc-unit">mm</div>
+                <div class="sc-hint">Akumulasi semua bulan</div>
+            </div>
+            <!-- 2 Rentang -->
+            <div class="stat-card green">
+                <span class="sc-icon">↕</span>
+                <div class="sc-label">Rentang (Maks − Min)</div>
+                <div class="sc-val" id="st-rentang">—</div>
+                <div class="sc-unit">mm</div>
+                <div class="sc-hint" id="st-rentang-hint">—</div>
+            </div>
+            <!-- 3 Rerata bulanan -->
+            <div class="stat-card teal">
+                <span class="sc-icon">≈</span>
+                <div class="sc-label">Rerata Akumulasi Bulanan</div>
+                <div class="sc-val" id="st-rerata">—</div>
+                <div class="sc-unit">mm/bulan</div>
+                <div class="sc-hint">Total ÷ 12 bulan</div>
+            </div>
+            <!-- 4 Koefisien Variasi -->
+            <div class="stat-card orange">
+                <span class="sc-icon">〜</span>
+                <div class="sc-label">Koefisien Variasi (CV)</div>
+                <div class="sc-val" id="st-cv">—</div>
+                <div class="sc-unit">%</div>
+                <div class="sc-hint">Std Dev ÷ Rerata × 100</div>
+            </div>
+            <!-- 5 Kurtosis -->
+            <div class="stat-card purple">
+                <span class="sc-icon">⛰</span>
+                <div class="sc-label">Kurtosis</div>
+                <div class="sc-val" id="st-kurt">—</div>
+                <div class="sc-unit">(excess)</div>
+                <div class="sc-hint" id="st-kurt-hint">—</div>
+            </div>
+            <!-- 6 Standar Deviasi -->
+            <div class="stat-card red">
+                <span class="sc-icon">σ</span>
+                <div class="sc-label">Standar Deviasi</div>
+                <div class="sc-val" id="st-std">—</div>
+                <div class="sc-unit">mm</div>
+                <div class="sc-hint">Simpangan baku bulanan</div>
             </div>
         </div>
     </div>
@@ -312,16 +526,72 @@ function downloadChart(id,name){
 function toTitleCase(s){ return (s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
 function avg(arr){ return arr.reduce((s,v)=>s+(+v),0)/(arr.length||1); }
 
+// ── FILTER TYPE TOGGLE ──
+// ── FILTER TYPE TOGGLE ──
+// ── FILTER TYPE TOGGLE ──
+window.setFilterType = function(type) {
+    const tabs = ['bulanan', 'tahunan', '10tahunan'];
+    
+    // 1. Atur tampilan Tab & Konten Filter
+    tabs.forEach(k => {
+        const isMatch = (k === type);
+        
+        const btn = document.getElementById('btn-f-' + k);
+        if (btn) btn.classList.toggle('active', isMatch);
+        
+        const container = document.getElementById('filter-' + k);
+        if (container) {
+            container.style.display = (k === 'bulanan' && isMatch) ? 'flex' : (isMatch ? 'block' : 'none');
+        }
+    });
+
+    // 2. Tangkap semua elemen penampung grafik & data
+    const chart1Card = document.getElementById('chart1-card');
+    const chart2Card = document.getElementById('chart2-card');
+    const summaryCards = document.getElementById('summary-cards');
+    const emptyState = document.getElementById('empty-state');
+
+    // 3. Logika sembunyikan grafik
+    if (type !== 'bulanan') {
+        // Sembunyikan semua bulanan charts
+        if (chart1Card) chart1Card.style.display = 'none';
+        if (chart2Card) chart2Card.style.display = 'none';
+        if (summaryCards) summaryCards.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
+    } else {
+        // Kembali ke Bulanan: reset
+        if (chart1Card) chart1Card.style.display = 'none';
+        if (chart2Card) chart2Card.style.display = 'none';
+        if (summaryCards) summaryCards.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'block';
+    }
+    // Selalu sembunyikan tahunan charts saat bukan mode tahunan
+    const thnA = document.getElementById('thn-chartA-card');
+    const thnB = document.getElementById('thn-chartB-card');
+    const thnS = document.getElementById('thn-stat-card');
+    if (thnA) thnA.style.display = (type === 'tahunan') ? thnA.style.display : 'none';
+    if (thnB) thnB.style.display = (type === 'tahunan') ? thnB.style.display : 'none';
+    if (thnS) thnS.style.display = (type === 'tahunan') ? thnS.style.display : 'none';
+};
+
 // ── INIT ──
 async function initFilters(){
     const [yrRes,wRes] = await Promise.all([fetch('/api/viz/tahun'), fetch('/api/viz/wilayah')]);
     const years=await yrRes.json(), wData=await wRes.json();
     const nowY=new Date().getFullYear();
+
+    // Bulanan selects
     const selY=document.getElementById('sel-tahun');
     (years.length?years:[nowY]).forEach(y=>{ const o=document.createElement('option'); o.value=o.text=y; if(y==nowY)o.selected=true; selY.appendChild(o); });
     document.getElementById('sel-bulan').value=new Date().getMonth()+1;
     const selK=document.getElementById('sel-kabupaten');
     wData.forEach(w=>{ const o=document.createElement('option'); o.value=w.id_wilayah; o.text=toTitleCase(w.nama_wilayah); selK.appendChild(o); });
+
+    // Tahunan selects — share same years & wilayah
+    const selYt=document.getElementById('sel-thn-t');
+    (years.length?years:[nowY]).forEach(y=>{ const o=document.createElement('option'); o.value=o.text=y; if(y==nowY)o.selected=true; selYt.appendChild(o); });
+    const selKt=document.getElementById('sel-kab-t');
+    wData.forEach(w=>{ const o=document.createElement('option'); o.value=w.id_wilayah; o.text=toTitleCase(w.nama_wilayah); selKt.appendChild(o); });
 }
 
 async function onKabupatenChange(){
@@ -364,7 +634,7 @@ function renderChart1(data,kabId,tahun,bulan){
     const das3arr = data.map(d=>+d.das3);
     const isAll   = kabId==='all';
     const kabName = isAll?'Semua Kabupaten':toTitleCase(document.getElementById('sel-kabupaten').selectedOptions[0].text);
-    document.getElementById('chart1-title').innerText = isAll?'Perbandingan Curah Hujan Antar Kabupaten':'Perbandingan Curah Hujan Per Pos — '+kabName;
+    document.getElementById('chart1-title').innerText = isAll?'Monitoring Curah Hujan Provinsi':'Monitoring Curah Hujan Kabupaten/Kota — '+kabName;
     document.getElementById('chart1-sub').innerText   = kabName+' · '+BULAN_NAMES[+bulan]+' '+tahun;
 
     if(chart1Inst)chart1Inst.destroy();
@@ -407,6 +677,42 @@ function renderChart2(apiData,posId,tahun,bulan){
 
     setView(currentView);
     renderDasTable(dasData);
+}
+
+// ── CHART 2 ──
+function downloadTable(){
+    if(!currentDailyData || currentDailyData.length === 0){
+        alert('Tidak ada data untuk diunduh');
+        return;
+    }
+
+    let csv = "Tanggal,Curah Hujan (mm),Keterangan,Kategori\n";
+
+    currentDailyData.forEach(d => {
+        const v = +d.curah_hujan;
+        const isTTU = v >= 8888;
+        const nilai = isTTU ? 0.1 : v.toFixed(1);
+
+        csv += `${d.tanggal},${nilai},"${d.keterangan || '-'}","${categoryFor(v)}"\n`;
+    });
+
+    // buat file & download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+
+    const bulan = document.getElementById('sel-bulan').value;
+    const tahun = document.getElementById('sel-tahun').value;
+    const pos = document.getElementById('sel-pos').selectedOptions[0].text;
+
+    link.setAttribute("download", `data_hujan_${pos}_${bulan}_${tahun}.csv`);
+    link.style.display = "none";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 function setView(v){
@@ -493,6 +799,443 @@ function renderDasTable(dasData){
             <td>${r.hh} hari</td><td>${r.hth} hari</td></tr>`;
     });
 }
+
+// ═══════════════════════════════════════════════════════════════
+// TAHUNAN MODE
+// ═══════════════════════════════════════════════════════════════
+
+let thnData        = null;   // full API response
+let thnMetric      = 'total';
+let thnChartType   = 'heatmap';
+let thnBMetric     = 'total';
+let thnLineInst    = null;
+let thnBarInst     = null;
+
+const BULAN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+// Color palette for multi-line (20 distinct colors)
+const LINE_COLORS = [
+    '#e74c3c','#3498db','#27ae60','#f39c12','#9b59b6',
+    '#1abc9c','#e67e22','#2980b9','#8e44ad','#16a085',
+    '#d35400','#c0392b','#2ecc71','#f1c40f','#7f8c8d',
+    '#34495e','#e91e63','#00bcd4','#ff5722','#4caf50'
+];
+
+// ── HEATMAP COLOR SCALES ──
+// Akumulasi: skala BMKG (coklat tua→oranye→kuning→hijau muda→hijau tua)
+// 0-20: #40210A, 20-50: #783A14, 50-100: #C86400, 100-150: #D6AA00,
+// 150-200: #E9E962, 200-300: #DDEECC, 300-400: #99D5A0, 400-500: #408040, >500: #1E4E1E
+const ACCUM_STOPS = [
+    [0,    [64,  33,  10]],
+    [20,   [120, 58,  20]],
+    [50,   [200, 100,  0]],
+    [100,  [214, 170,  0]],
+    [150,  [233, 233, 98]],
+    [200,  [221, 238,204]],
+    [300,  [153, 213,160]],
+    [400,  [ 64, 128, 64]],
+    [500,  [ 30,  78, 30]]
+];
+
+function accumColor(v) {
+    if (v <= 0) return 'rgb(220,220,220)';
+    const stops = ACCUM_STOPS;
+    if (v >= stops[stops.length-1][0]) return `rgb(${stops[stops.length-1][1].join(',')})`;
+    for (let i = 0; i < stops.length-1; i++) {
+        if (v >= stops[i][0] && v < stops[i+1][0]) {
+            const f = (v - stops[i][0]) / (stops[i+1][0] - stops[i][0]);
+            const lo = stops[i][1], hi = stops[i+1][1];
+            return `rgb(${Math.round(lo[0]+f*(hi[0]-lo[0]))},${Math.round(lo[1]+f*(hi[1]-lo[1]))},${Math.round(lo[2]+f*(hi[2]-lo[2]))})`;
+        }
+    }
+    return 'rgb(30,78,30)';
+}
+
+// Maks: hijau→kuning→oranye→merah→ungu→hitam
+const MAKS_STOPS = [
+    [0,   [ 39,174, 96]],
+    [20,  [241,196, 15]],
+    [50,  [230,126, 34]],
+    [100, [231, 76, 60]],
+    [150, [142, 68,173]],
+    [200, [ 44, 62, 80]]
+];
+
+function maksColor(v) {
+    if (v <= 0) return 'rgb(220,220,220)';
+    const stops = MAKS_STOPS;
+    if (v >= stops[stops.length-1][0]) return `rgb(${stops[stops.length-1][1].join(',')})`;
+    for (let i = 0; i < stops.length-1; i++) {
+        if (v >= stops[i][0] && v < stops[i+1][0]) {
+            const f = (v - stops[i][0]) / (stops[i+1][0] - stops[i][0]);
+            const lo = stops[i][1], hi = stops[i+1][1];
+            return `rgb(${Math.round(lo[0]+f*(hi[0]-lo[0]))},${Math.round(lo[1]+f*(hi[1]-lo[1]))},${Math.round(lo[2]+f*(hi[2]-lo[2]))})`;
+        }
+    }
+    return 'rgb(44,62,80)';
+}
+
+function heatmapColor(v, metric) {
+    return metric === 'maks' ? maksColor(v) : accumColor(v);
+}
+
+// Text color contrast
+function textColor(r,g,b){ return (0.299*r+0.587*g+0.114*b)>140?'rgba(0,0,0,.8)':'rgba(255,255,255,.9)'; }
+function textColorFromBg(bg) {
+    const m = bg.match(/\d+/g);
+    return m ? textColor(+m[0], +m[1], +m[2]) : '#555';
+}
+
+async function onKabTahunanChange() {
+    const kabId = document.getElementById('sel-kab-t').value;
+    const selPos = document.getElementById('sel-pos-t');
+    selPos.innerHTML = '<option value="">-- SEMUA POS (REKAP KAB) --</option>';
+    if (kabId === 'all') return;
+    const data = await (await fetch('/api/viz/pos?wilayah_id=' + kabId)).json();
+    data.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.id_kecamatan; o.text = toTitleCase(p.nama_kecamatan);
+        selPos.appendChild(o);
+    });
+}
+
+async function tampilkanTahunan() {
+    const kabId   = document.getElementById('sel-kab-t').value;
+    const posId   = document.getElementById('sel-pos-t').value;
+    const tahun   = document.getElementById('sel-thn-t').value;
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('thn-chartA-card').style.display = 'none';
+    document.getElementById('thn-chartB-card').style.display = 'none';
+
+    let url = '/api/viz/tahunan-summary?tahun=' + tahun;
+    if (posId) url += '&kecamatan_id=' + posId;
+    else if (kabId !== 'all') url += '&wilayah_id=' + kabId;
+
+    const res = await fetch(url);
+    thnData = await res.json();
+    if (thnData.error) { alert('Error: ' + thnData.error); return; }
+
+    // Titles
+    const kabName  = kabId === 'all' ? 'Semua Kabupaten' :
+                     toTitleCase(document.getElementById('sel-kab-t').selectedOptions[0].text);
+    const posName  = posId ? toTitleCase(document.getElementById('sel-pos-t').selectedOptions[0].text) : null;
+    const subtitle = (posName ? 'Pos ' + posName.toUpperCase() : kabName) + ' · ' + tahun;
+
+    document.getElementById('thn-chartA-title').innerText = posName
+        ? 'Pola Curah Hujan — ' + posName
+        : (kabId === 'all' ? 'Pola Curah Hujan Provinsi' : 'Pola Curah Hujan — ' + kabName);
+    document.getElementById('thn-chartA-sub').innerText  = subtitle;
+
+    document.getElementById('thn-chartA-card').style.display = 'block';
+    renderThnChartA();
+
+    // Grafik B + stat dashboard only when specific pos
+    if (posId) {
+        document.getElementById('thn-chartB-title').innerText = 'Distribusi Bulanan — ' + posName;
+        document.getElementById('thn-chartB-sub').innerText   = tahun;
+        document.getElementById('thn-chartB-card').style.display = 'block';
+        renderThnBarB();
+        renderStatDashboard(posName, tahun);
+    } else {
+        document.getElementById('thn-chartB-card').style.display = 'none';
+        document.getElementById('thn-stat-card').style.display   = 'none';
+    }
+}
+
+function setThnMetric(m) {
+    thnMetric = m;
+    ['total','maks'].forEach(k => document.getElementById('thn-m-'+k).classList.toggle('active', k===m));
+    renderThnChartA();
+}
+function setThnChart(t) {
+    thnChartType = t;
+    ['heatmap','line'].forEach(k => document.getElementById('thn-t-'+k).classList.toggle('active', k===t));
+    renderThnChartA();
+}
+function setThnBMetric(m) {
+    thnBMetric = m;
+    ['total','maks','rerata','hh'].forEach(k => document.getElementById('thn-b-'+k).classList.toggle('active', k===m));
+    renderThnBarB();
+}
+
+function renderThnChartA() {
+    if (!thnData) return;
+    document.getElementById('thn-view-heatmap').style.display = thnChartType === 'heatmap' ? 'block' : 'none';
+    document.getElementById('thn-view-line').style.display    = thnChartType === 'line'    ? 'block' : 'none';
+    if (thnChartType === 'heatmap') renderHeatmap();
+    else                             renderLineChart();
+}
+
+function renderHeatmap() {
+    const entities = thnData.entities || [];
+    const metric   = thnMetric;
+
+    // Update legend
+    const isAccum = metric !== 'maks';
+    const legBar  = document.getElementById('thn-legend-bar');
+    legBar.style.background = isAccum
+        ? 'linear-gradient(to right,rgb(64,33,10),rgb(200,100,0),rgb(233,233,98),rgb(153,213,160),rgb(30,78,30))'
+        : 'linear-gradient(to right,rgb(39,174,96),rgb(241,196,15),rgb(231,76,60),rgb(142,68,173),rgb(44,62,80))';
+    legBar.title = isAccum ? 'Skala Akumulasi CH' : 'Skala Maks CH';
+
+    let html = `<table class="heatmap-table"><thead><tr>
+        <th class="row-label">Entitas</th>`;
+    BULAN_SHORT.forEach(b => html += `<th>${b}</th>`);
+    html += '</tr></thead><tbody>';
+
+    entities.forEach(e => {
+        html += `<tr><td class="hm-row-label">${toTitleCase(e.label)}</td>`;
+        e.data.forEach(d => {
+            const v  = +d[metric];
+            const bg = heatmapColor(v, metric);
+            const tc = textColorFromBg(bg);
+            html += `<td style="background:${bg};" title="${e.label} — ${BULAN_SHORT[(d.bulan||1)-1]}: ${v} mm">
+                <span class="hm-cell-val" style="color:${tc};">${v > 0 ? v.toFixed(0) : ''}</span></td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('thn-heatmap-wrap').innerHTML = html;
+}
+
+function renderLineChart() {
+    const entities = thnData.entities || [];
+    const metric   = thnMetric;
+    const metricYLabel = {total:'CH (mm)', maks:'Maks CH (mm)'}[metric];
+
+    if (thnLineInst) thnLineInst.destroy();
+    const datasets = entities.map((e, i) => ({
+        label: toTitleCase(e.label),
+        data: e.data.map(d => +d[metric]),
+        borderColor: LINE_COLORS[i % LINE_COLORS.length],
+        backgroundColor: 'transparent',
+        borderWidth: 1.8,
+        pointRadius: 3, pointHoverRadius: 6, tension: 0.3
+    }));
+    // Average line if multiple entities
+    if (entities.length > 1) {
+        const avgData = BULAN_SHORT.map((_, bi) => {
+            const vals = entities.map(e => +e.data[bi][metric]).filter(v => v > 0);
+            return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+        });
+        datasets.push({
+            label: 'Rata-rata', data: avgData,
+            borderColor: '#2c3e50', backgroundColor: 'transparent',
+            borderWidth: 3, borderDash: [6,3], pointRadius: 4, pointHoverRadius: 7, tension: 0.3
+        });
+    }
+
+    thnLineInst = new Chart(document.getElementById('thn-line-canvas'), {
+        type: 'line',
+        data: { labels: BULAN_SHORT, datasets },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, font: { size: 11 } },
+                    onClick: function(evt, legendItem, legend) {
+                        const chart   = legend.chart;
+                        const clicked = legendItem.datasetIndex;
+                        // Check if currently isolating
+                        const allHidden = chart.data.datasets.every((ds, i) =>
+                            i === clicked ? false : chart.getDatasetMeta(i).hidden
+                        );
+                        if (allHidden) {
+                            // Already isolated → show all
+                            chart.data.datasets.forEach((_, i) => {
+                                chart.getDatasetMeta(i).hidden = false;
+                            });
+                        } else {
+                            // Isolate clicked line, hide others
+                            chart.data.datasets.forEach((_, i) => {
+                                chart.getDatasetMeta(i).hidden = (i !== clicked);
+                            });
+                        }
+                        chart.update();
+                    }
+                },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Bulan' } },
+                y: { title: { display: true, text: metricYLabel }, min: 0 }
+            }
+        }
+    });
+}
+
+function downloadThnA() {
+    if (thnChartType === 'line') {
+        downloadChart('thn-line-canvas', 'tahunan-garis');
+        return;
+    }
+    // Heatmap: render to offscreen canvas using html2canvas via CDN script tag
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    script.onload = function() {
+        html2canvas(document.getElementById('thn-heatmap-wrap'), { scale: 2 }).then(canvas => {
+            const a = document.createElement('a');
+            a.download = 'heatmap-tahunan.png';
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+        });
+    };
+    script.onerror = function() {
+        alert('Unduh heatmap: gunakan screenshot browser (Ctrl+Shift+S).');
+    };
+    document.head.appendChild(script);
+}
+
+function renderThnBarB() {
+    if (!thnData || !thnData.entities || !thnData.entities.length) return;
+    const entity = thnData.entities[0];
+    const metric = thnBMetric;
+    const metricLabel = {total:'Akumulasi (mm)', maks:'Maks (mm)', rerata:'Rerata CH (mm)', hh:'Hari Hujan'}[metric];
+    const values = entity.data.map(d => +d[metric]);
+    const maxV   = Math.max(...values.filter(v => v > 0));
+
+    const colors = values.map(v => {
+        if (metric === 'hh') return '#3498db';
+        return colorForVal(v);
+    });
+    const maxIdx = values.findIndex(v => v === maxV && v > 0);
+    if (maxIdx >= 0) colors[maxIdx] = '#c0392b';
+
+    if (thnBarInst) thnBarInst.destroy();
+    thnBarInst = new Chart(document.getElementById('thn-bar-canvas'), {
+        type: 'bar',
+        data: {
+            labels: BULAN_SHORT,
+            datasets: [{ label: metricLabel, data: values, backgroundColor: colors, borderRadius: 4 }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: {
+                    label: ctx => ` ${ctx.parsed.y.toFixed(metric==='hh'?0:1)} ${metric==='hh'?'hari':'mm'}`
+                }}
+            },
+            scales: {
+                x: { title: { display: true, text: 'Bulan' } },
+                y: { title: { display: true, text: metricLabel }, min: 0 }
+            }
+        }
+    });
+}
+
+function downloadThnBarBWithLabels() {
+    if (!thnData || !thnData.entities || !thnData.entities.length) return;
+    const entity = thnData.entities[0];
+    const metric = thnBMetric;
+    const metricLabel = {total:'Akumulasi (mm)', maks:'Maks (mm)', rerata:'Rerata CH (mm)', hh:'Hari Hujan'}[metric];
+    const values = entity.data.map(d => +d[metric]);
+    const maxV   = Math.max(...values.filter(v => v > 0));
+    const colors = values.map(v => metric === 'hh' ? '#3498db' : colorForVal(v));
+    const maxIdx = values.findIndex(v => v === maxV && v > 0);
+    if (maxIdx >= 0) colors[maxIdx] = '#c0392b';
+
+    // Create offscreen canvas with data labels
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width  = 1200; offCanvas.height = 500;
+    offCanvas.style.display = 'none';
+    document.body.appendChild(offCanvas);
+
+    const tempChart = new Chart(offCanvas, {
+        type: 'bar',
+        data: { labels: BULAN_SHORT, datasets: [{ label: metricLabel, data: values, backgroundColor: colors, borderRadius: 4 }] },
+        options: {
+            animation: { onComplete: function() {
+                const a = document.createElement('a');
+                a.download = `distribusi-bulanan-${metric}.png`;
+                a.href = offCanvas.toDataURL('image/png');
+                a.click();
+                tempChart.destroy();
+                document.body.removeChild(offCanvas);
+            }},
+            responsive: false,
+            plugins: {
+                legend: { display: false },
+                // Manual label drawing via afterDatasetDraw (plugin)
+                tooltip: { enabled: false }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Bulan' } },
+                y: { title: { display: true, text: metricLabel }, min: 0 }
+            }
+        },
+        plugins: [{
+            id: 'dataLabels',
+            afterDatasetsDraw(chart) {
+                const ctx = chart.ctx;
+                chart.data.datasets.forEach((ds, di) => {
+                    const meta = chart.getDatasetMeta(di);
+                    meta.data.forEach((bar, idx) => {
+                        const val = ds.data[idx];
+                        if (!val || val <= 0) return;
+                        const label = metric==='hh' ? val.toFixed(0)+' hari' : val.toFixed(1)+' mm';
+                        ctx.save();
+                        ctx.font = 'bold 11px Segoe UI';
+                        ctx.fillStyle = idx===maxIdx ? '#c0392b' : '#2c3e50';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(label, bar.x, bar.y - 6);
+                        ctx.restore();
+                    });
+                });
+            }
+        }]
+    });
+}
+
+// ── STAT DASHBOARD ──
+function renderStatDashboard(posName, tahun) {
+    if (!thnData || !thnData.entities || !thnData.entities.length) return;
+    const entity = thnData.entities[0];
+    const vals   = entity.data.map(d => +d.total).filter(v => v > 0);
+    if (!vals.length) return;
+
+    const n      = vals.length;          // jumlah bulan dengan data
+    const total  = vals.reduce((s,v)=>s+v, 0);
+    const rerata = total / 12;           // total / 12 bulan
+    const maxV   = Math.max(...vals);
+    const minV   = Math.min(...vals);
+    const rentang= maxV - minV;
+
+    // Std Dev (populasi atas semua 12 bulan including 0)
+    const all12  = entity.data.map(d => +d.total);
+    const mean12 = all12.reduce((s,v)=>s+v,0) / 12;
+    const variance = all12.reduce((s,v)=>s+(v-mean12)**2, 0) / 12;
+    const std    = Math.sqrt(variance);
+    const cv     = mean12 > 0 ? (std / mean12) * 100 : 0;
+
+    // Kurtosis (excess, populasi)
+    const m4 = all12.reduce((s,v)=>s+(v-mean12)**4, 0) / 12;
+    const kurt = variance > 0 ? (m4 / (variance**2)) - 3 : 0;
+
+    // Interpretasi kurtosis
+    let kurtHint = '';
+    if      (kurt >  1) kurtHint = 'Leptokurtik (puncak tajam)';
+    else if (kurt < -1) kurtHint = 'Platikurtik (puncak datar)';
+    else                kurtHint = 'Mesokurtik (mendekati normal)';
+
+    // Fill DOM
+    document.getElementById('st-total').innerText        = total.toFixed(1);
+    document.getElementById('st-rentang').innerText      = rentang.toFixed(1);
+    document.getElementById('st-rentang-hint').innerText = `Maks ${maxV.toFixed(0)} mm — Min ${minV.toFixed(0)} mm`;
+    document.getElementById('st-rerata').innerText       = rerata.toFixed(1);
+    document.getElementById('st-cv').innerText           = cv.toFixed(1);
+    document.getElementById('st-std').innerText          = std.toFixed(1);
+    document.getElementById('st-kurt').innerText         = kurt.toFixed(2);
+    document.getElementById('st-kurt-hint').innerText    = kurtHint;
+
+    document.getElementById('thn-stat-title').innerText = 'Statistik Curah Hujan — ' + toTitleCase(posName);
+    document.getElementById('thn-stat-sub').innerText   = 'Tahun ' + tahun + ' (berdasarkan akumulasi 12 bulan)';
+    document.getElementById('thn-stat-card').style.display = 'block';
+}
+
+// ══ end TAHUNAN ══
 
 initFilters();
 </script>

@@ -147,24 +147,15 @@ im = ax.imshow(zi, extent=(min_lon, max_lon, min_lat, max_lat),
 if gdf_boundary is not None:
     gdf_boundary.plot(ax=ax, facecolor='none', edgecolor='black', linewidth=0.8)
 
-# Legenda Manual
-legend_patches = [
-    mpatches.Patch(color='#B0B0B0', label='Tidak ada hujan (< 0.5)'),
-    mpatches.Patch(color='#00FF00', label='Hujan ringan (0.5 - 20)'),
-    mpatches.Patch(color='#FFFF00', label='Hujan sedang (20 - 50)'),
-    mpatches.Patch(color='#FF7F00', label='Hujan lebat (50 - 100)'),
-    mpatches.Patch(color='#FF0000', label='Hujan sangat lebat (100 - 150)'),
-    mpatches.Patch(color='#9400D3', label='Hujan ekstrim (> 150)')
-]
+# --- KONFIGURASI HANYA PETA ---
+# Menghapus sumbu (axis), kotak (box), dan label
+ax.axis('off')
 
-plt.legend(handles=legend_patches, loc='upper right', title="Intensitas (mm)", 
-           bbox_to_anchor=(1.25, 1), fontsize=10)
+# Menghilangkan margin di sekitar peta
+plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+ax.margins(0,0)
 
-plt.title(f'Peta Sebaran Hujan Harian', fontsize=16, fontweight='bold')
-plt.xlabel('Longitude')
-plt.ylabel('Latitude')
-plt.grid(True, which='major', linestyle='--', alpha=0.3)
-
-plt.savefig(output_image, dpi=300, bbox_inches='tight')
+# Simpan dengan transparent=True dan pad_inches=0 agar tidak ada ruang putih berlebih
+plt.savefig(output_image, dpi=300, bbox_inches='tight', pad_inches=0, transparent=True)
 print(f"Selesai! Gambar disimpan: {output_image}")
 plt.show()
