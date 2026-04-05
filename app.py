@@ -274,6 +274,218 @@ def viz_tahunan_summary():
         return jsonify({'error': str(e)})
 
 
+@app.route('/api/viz/dekade-summary')
+def viz_dekade_summary():
+    """
+    10-year (dekade) aggregates.
+    tahun_awal: start year. period = tahun_awal to tahun_awal+9
+    Validation: tahun_awal > 2018 → invalid; missing years → flag warning
+    Modes:
+      kecamatan_id → per pos (all metrics + stats)
+      wilayah_id   → per-pos aggregate within kab
+      (none)       → per-kab provinsi
+    """
+    import math, calendar
+    tahun_awal   = int(request.args.get('tahun_awal', 2016))
+    wilayah_id   = request.args.get('wilayah_id')
+    kecamatan_id = request.args.get('kecamatan_id')
+    tahun_akhir  = tahun_awal + 9
+    tahun_range  = list(range(tahun_awal, tahun_akhir + 1))
+
+    if tahun_awal > 2018:
+        return jsonify({'error': f'Periode mulai {tahun_awal} tidak valid. Gunakan tahun awal ≤ 2018.'})
+
+    def safe(v):
+        try:
+            f = float(v)
+            return 0.0 if (math.isnan(f) or math.isinf(f)) else round(f, 2)
+        except: return 0.0
+
+    try:
+        with engine2.connect() as conn:
+
+            # ── Helper: check available years ──
+            yr_check = pd.read_sql(
+                text("SELECT DISTINCT tahun FROM curah_hujan_harian WHERE tahun BETWEEN :ta AND :tb ORDER BY tahun"),
+                conn, params={'ta': tahun_awal, 'tb': tahun_akhir}
+            )
+            available_years = yr_check['tahun'].tolist()
+            missing_years   = [y for y in tahun_range if y not in available_years]
+
+            if kecamatan_id:
+                kid = int(kecamatan_id)
+                # Per-pos: monthly & yearly aggregates
+                q = text("""
+                    SELECT tahun, bulan,
+                        SUM(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE 0 END)              AS total,
+                        MAX(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE NULL END)            AS maks,
+                        COUNT(CASE WHEN curah_hujan >= 50  AND curah_hujan < 8888 THEN 1 END)       AS cnt_lebat,
+                        COUNT(CASE WHEN curah_hujan >= 100 AND curah_hujan < 8888 THEN 1 END)       AS cnt_ekstrem
+                    FROM curah_hujan_harian
+                    WHERE id_kecamatan=:kid AND tahun BETWEEN :ta AND :tb
+                    GROUP BY tahun, bulan ORDER BY tahun, bulan
+                """)
+                df = pd.read_sql(q, conn, params={'kid':kid,'ta':tahun_awal,'tb':tahun_akhir}).fillna(0)
+
+                # Monthly averages over 10 years
+                monthly = []
+                for m in range(1, 13):
+                    rows = df[df['bulan'] == m]
+                    monthly.append({
+                        'bulan': m,
+                        'rerata_total': safe(rows['total'].sum() / len(tahun_range)),
+                        'maks': safe(rows['maks'].max()),
+                        'cnt_lebat':  int(rows['cnt_lebat'].sum()),
+                        'cnt_ekstrem':int(rows['cnt_ekstrem'].sum())
+                    })
+
+                # Yearly maks
+                yearly = []
+                for y in tahun_range:
+                    rows = df[df['tahun'] == y]
+                    yearly.append({'tahun': y, 'maks': safe(rows['maks'].max()), 'total': safe(rows['total'].sum())})
+
+                # Stats: annual totals
+                annual_totals = [sum(df[df['tahun']==y]['total'].sum() for _ in [1]) for y in tahun_range]
+                # More precisely:
+                annual_totals = []
+                for y in tahun_range:
+                    s = df[df['tahun']==y]['total'].sum()
+                    annual_totals.append(float(s))
+                n = len(tahun_range)
+                rerata_tahunan = sum(annual_totals) / n
+
+                # Monthly means (12 months)
+                monthly_means = [monthly[m]['rerata_total'] for m in range(12)]
+                rerata_bulanan = sum(monthly_means) / 12
+
+                # Std dev, CV, kurtosis of annual_totals
+                mean_a = rerata_tahunan
+                var_a  = sum((v - mean_a)**2 for v in annual_totals) / n
+                std_a  = math.sqrt(var_a)
+                cv_a   = (std_a / mean_a * 100) if mean_a > 0 else 0
+                m4_a   = sum((v - mean_a)**4 for v in annual_totals) / n
+                kurt_a = ((m4_a / var_a**2) - 3) if var_a > 0 else 0
+                rentang_a = max(annual_totals) - min(annual_totals)
+
+                # Pos label
+                lbl_row = pd.read_sql(text("SELECT nama_kecamatan FROM kecamatan WHERE id_kecamatan=:k"), conn, params={'k':kid})
+                lbl = lbl_row['nama_kecamatan'].iloc[0] if len(lbl_row) else 'Pos'
+
+                return jsonify({
+                    'mode': 'pos', 'label': lbl,
+                    'tahun_awal': tahun_awal, 'tahun_akhir': tahun_akhir,
+                    'missing_years': missing_years,
+                    'monthly': monthly, 'yearly': yearly,
+                    'stats': {
+                        'rerata_tahunan': round(rerata_tahunan,1),
+                        'rerata_bulanan':  round(rerata_bulanan,1),
+                        'rentang': round(rentang_a,1),
+                        'std': round(std_a,1), 'cv': round(cv_a,1),
+                        'kurtosis': round(kurt_a,2)
+                    }
+                })
+
+            elif wilayah_id and wilayah_id != 'all':
+                wid = int(wilayah_id)
+                q = text("""
+                    SELECT c.tahun, c.bulan, k.id_kecamatan,
+                        SUM(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE 0 END)              AS total,
+                        MAX(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE NULL END)            AS maks,
+                        COUNT(CASE WHEN curah_hujan >= 50  AND curah_hujan < 8888 THEN 1 END)       AS cnt_lebat,
+                        COUNT(CASE WHEN curah_hujan >= 100 AND curah_hujan < 8888 THEN 1 END)       AS cnt_ekstrem
+                    FROM curah_hujan_harian c
+                    JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
+                    WHERE k.id_wilayah=:wid AND c.tahun BETWEEN :ta AND :tb
+                    GROUP BY c.tahun, c.bulan, k.id_kecamatan
+                """)
+                df = pd.read_sql(q, conn, params={'wid':wid,'ta':tahun_awal,'tb':tahun_akhir}).fillna(0)
+
+                # Aggregate per month (avg across pos with data)
+                monthly = []
+                for m in range(1, 13):
+                    rows = df[df['bulan'] == m]
+                    # per pos per year total for this month
+                    pos_yr = rows.groupby(['id_kecamatan','tahun'])['total'].sum().reset_index()
+                    # mean over 10 years per pos, then mean across pos
+                    pos_means = pos_yr.groupby('id_kecamatan')['total'].mean()
+                    rerata = pos_means.mean() if len(pos_means) else 0
+                    monthly.append({
+                        'bulan': m,
+                        'rerata_total': safe(rerata),
+                        'maks': safe(rows['maks'].max()),
+                        'cnt_lebat':  int(rows['cnt_lebat'].sum()),
+                        'cnt_ekstrem':int(rows['cnt_ekstrem'].sum())
+                    })
+
+                yearly = []
+                for y in tahun_range:
+                    rows = df[df['tahun']==y]
+                    # per pos total
+                    pos_totals = rows.groupby('id_kecamatan')['total'].sum()
+                    nonzero = pos_totals[pos_totals>0]
+                    total_kab = nonzero.sum() / max(len(nonzero),1)
+                    yearly.append({'tahun':y, 'maks':safe(rows['maks'].max()), 'total':safe(total_kab)})
+
+                wlbl = pd.read_sql(text("SELECT nama_wilayah FROM wilayah WHERE id_wilayah=:w"), conn, params={'w':wid})
+                lbl = wlbl['nama_wilayah'].iloc[0] if len(wlbl) else 'Kabupaten'
+
+                return jsonify({
+                    'mode':'kab', 'label':lbl,
+                    'tahun_awal':tahun_awal,'tahun_akhir':tahun_akhir,
+                    'missing_years':missing_years,
+                    'monthly':monthly,'yearly':yearly
+                })
+
+            else:
+                # Provinsi: per kab
+                q = text("""
+                    SELECT c.tahun, c.bulan, k.id_wilayah, k.id_kecamatan, w.nama_wilayah AS label,
+                        SUM(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE 0 END) AS pos_total,
+                        MAX(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE NULL END) AS pos_maks
+                    FROM curah_hujan_harian c
+                    JOIN kecamatan k ON c.id_kecamatan=k.id_kecamatan
+                    JOIN wilayah w ON k.id_wilayah=w.id_wilayah
+                    WHERE c.tahun BETWEEN :ta AND :tb
+                    GROUP BY c.tahun, c.bulan, k.id_wilayah, k.id_kecamatan, w.nama_wilayah
+                """)
+                df = pd.read_sql(q, conn, params={'ta':tahun_awal,'tb':tahun_akhir}).fillna(0)
+
+                # Yearly total per kab (avg of nonzero pos)
+                entities_yearly = {}
+                entities_monthly = {}
+                for wid_g, grp_kab in df.groupby('id_wilayah'):
+                    lbl = grp_kab['label'].iloc[0]
+                    yearly = []
+                    for y in tahun_range:
+                        rows_y = grp_kab[grp_kab['tahun']==y]
+                        pos_totals = rows_y.groupby('id_kecamatan')['pos_total'].sum()
+                        nz = pos_totals[pos_totals>0]
+                        total = nz.sum()/max(len(nz),1)
+                        yearly.append({'tahun':y,'total':safe(total)})
+                    entities_yearly[str(wid_g)] = {'label':lbl,'yearly':yearly}
+
+                    monthly = []
+                    for m in range(1,13):
+                        rows_m = grp_kab[grp_kab['bulan']==m]
+                        pos_yr = rows_m.groupby(['id_kecamatan','tahun'])['pos_total'].sum().reset_index()
+                        pos_means = pos_yr.groupby('id_kecamatan')['pos_total'].mean()
+                        rerata = pos_means.mean() if len(pos_means) else 0
+                        monthly.append({'bulan':m,'rerata_total':safe(rerata)})
+                    entities_monthly[str(wid_g)] = {'label':lbl,'monthly':monthly}
+
+                return jsonify({
+                    'mode':'provinsi',
+                    'tahun_awal':tahun_awal,'tahun_akhir':tahun_akhir,
+                    'missing_years':missing_years,
+                    'entities_yearly': list(entities_yearly.values()),
+                    'entities_monthly': list(entities_monthly.values())
+                })
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
 @app.route('/api/viz/data-pos')
 def viz_data_pos():
     """Data harian satu pos dalam satu bulan, termasuk rekap dasarian."""
