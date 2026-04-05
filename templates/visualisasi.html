@@ -266,10 +266,31 @@
                 <button class="btn-tampilkan" onclick="tampilkanTahunan()">Tampilkan</button>
             </div>
         </div>
-        <div id="filter-10tahunan" style="display:none; text-align: center; padding: 30px; background: #f8f9fa; border-radius: 8px; border: 1px dashed #bdc3c7; color: #7f8c8d;">
-            <div style="font-size: 24px; margin-bottom: 8px;">⏳</div>
-            <strong style="font-size: 14px; color: #2c3e50;">Filter 10 Tahunan</strong><br>
-            <span style="font-size: 12px;">(Coming Soon) Form untuk filter data 10 tahunan (dekadal) akan ditempatkan di sini.</span>
+        <div id="filter-10tahunan" style="display:none;">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Kabupaten:</label>
+                    <select id="sel-kab-dk" onchange="onKabDekadeChange()">
+                        <option value="all">-- SEMUA KABUPATEN --</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Pos Hujan:</label>
+                    <select id="sel-pos-dk">
+                        <option value="">-- SEMUA POS (REKAP KAB) --</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Tahun Awal:</label>
+                    <select id="sel-thn-dk" onchange="updatePeriodLabel()"></select>
+                </div>
+                <div class="filter-group">
+                    <label>Periode:</label>
+                    <div id="dk-period-label" style="padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;background:#f8f9fa;color:#555;">—</div>
+                </div>
+                <button class="btn-tampilkan" onclick="tampilkanDekade()">Tampilkan</button>
+            </div>
+            <div id="dk-invalid-msg" style="display:none;margin-top:12px;padding:10px 16px;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;font-size:13px;color:#856404;"></div>
         </div>
     </div>
 
@@ -461,6 +482,104 @@
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════════
+         DEKADE — Grafik P (Garis akumulasi per tahun, provinsi)
+         ══════════════════════════════════════════════════════════ -->
+    <div class="chart-card" id="dk-chartP-card" style="display:none;">
+        <div class="chart-title" id="dk-chartP-title">Akumulasi Curah Hujan Per Tahun</div>
+        <div class="chart-sub"  id="dk-chartP-sub">—</div>
+        <div class="chart-toolbar"><button class="btn-download" onclick="downloadChart('dk-canvas-p','dekade-garis-tahunan')">⬇ Unduh Gambar</button></div>
+        <canvas id="dk-canvas-p" height="75"></canvas>
+        <p style="text-align:center;font-size:11px;color:#999;margin-top:8px;">Klik nama kab/kota pada legenda untuk isolasi garis</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DEKADE — Grafik Q (Heatmap rerata bulanan)
+         ══════════════════════════════════════════════════════════ -->
+    <div class="chart-card" id="dk-chartQ-card" style="display:none;">
+        <div class="chart-title" id="dk-chartQ-title">Rerata Curah Hujan Bulanan (10 Tahun)</div>
+        <div class="chart-sub"  id="dk-chartQ-sub">—</div>
+        <div class="chart-toolbar"><button class="btn-download" onclick="downloadDkHeatmap()">⬇ Unduh Gambar</button></div>
+        <div style="overflow-x:auto;"><div id="dk-heatmap-wrap"></div></div>
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:8px;font-size:11px;color:#555;">
+            <span>Rendah</span>
+            <div id="dk-legend-bar" style="width:160px;height:12px;border-radius:3px;background:linear-gradient(to right,rgb(64,33,10),rgb(200,100,0),rgb(233,233,98),rgb(153,213,160),rgb(30,78,30));"></div>
+            <span>Tinggi</span>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DEKADE — Konten A (pilih 4 jenis grafik)
+         ══════════════════════════════════════════════════════════ -->
+    <div class="chart-card" id="dk-chartA-card" style="display:none;">
+        <div class="chart-title" id="dk-chartA-title">Analisis Curah Hujan 10 Tahun</div>
+        <div class="chart-sub"  id="dk-chartA-sub">—</div>
+        <div class="view-toggle">
+            <button class="vt-btn active" id="dk-a-rerata"  onclick="setDkMetric('rerata')">📈 Rerata Bulanan</button>
+            <button class="vt-btn"        id="dk-a-maksb"   onclick="setDkMetric('maksb')">🔺 CH Maks/Bulan</button>
+            <button class="vt-btn"        id="dk-a-makst"   onclick="setDkMetric('makst')">📅 CH Maks/Tahun</button>
+            <button class="vt-btn"        id="dk-a-kejadian" onclick="setDkMetric('kejadian')">⚡ Kejadian Ekstrem</button>
+        </div>
+        <div class="chart-toolbar"><button class="btn-download" onclick="downloadChart('dk-canvas-a','dekade-kontenA')">⬇ Unduh Gambar</button></div>
+        <canvas id="dk-canvas-a" height="75"></canvas>
+        <div id="dk-kej-legend" style="display:none;" class="legend-row" style="margin-top:8px;">
+            <div class="leg-item"><div class="leg-dot" style="background:#e67e22;"></div>Hujan Lebat (≥50 mm)</div>
+            <div class="leg-item"><div class="leg-dot" style="background:#e74c3c;"></div>Hujan Ekstrem (≥100 mm)</div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DEKADE — Konten B (Statistik 10 tahun, hanya pos)
+         ══════════════════════════════════════════════════════════ -->
+    <div class="stat-dashboard" id="dk-stat-card" style="display:none;">
+        <div class="stat-dashboard-title" id="dk-stat-title">Statistik Curah Hujan 10 Tahun</div>
+        <div class="stat-dashboard-sub"   id="dk-stat-sub">—</div>
+        <div class="stat-grid">
+            <div class="stat-card">
+                <span class="sc-icon">🌧</span>
+                <div class="sc-label">Rerata Total Hujan Tahunan</div>
+                <div class="sc-val" id="dk-st-ratayr">—</div>
+                <div class="sc-unit">mm/tahun</div>
+                <div class="sc-hint">Akumulasi 10 tahun ÷ 10</div>
+            </div>
+            <div class="stat-card green">
+                <span class="sc-icon">📅</span>
+                <div class="sc-label">Rerata CH Bulanan</div>
+                <div class="sc-val" id="dk-st-ratab">—</div>
+                <div class="sc-unit">mm/bulan</div>
+                <div class="sc-hint">Rata-rata 12 rerata bulanan</div>
+            </div>
+            <div class="stat-card teal">
+                <span class="sc-icon">↕</span>
+                <div class="sc-label">Rentang (10 Tahun)</div>
+                <div class="sc-val" id="dk-st-rentang">—</div>
+                <div class="sc-unit">mm</div>
+                <div class="sc-hint">Maks tahunan − Min tahunan</div>
+            </div>
+            <div class="stat-card orange">
+                <span class="sc-icon">〜</span>
+                <div class="sc-label">Koefisien Variasi</div>
+                <div class="sc-val" id="dk-st-cv">—</div>
+                <div class="sc-unit">%</div>
+                <div class="sc-hint">Std Dev ÷ Rerata × 100</div>
+            </div>
+            <div class="stat-card purple">
+                <span class="sc-icon">⛰</span>
+                <div class="sc-label">Kurtosis</div>
+                <div class="sc-val" id="dk-st-kurt">—</div>
+                <div class="sc-unit">(excess)</div>
+                <div class="sc-hint" id="dk-st-kurt-hint">—</div>
+            </div>
+            <div class="stat-card red">
+                <span class="sc-icon">σ</span>
+                <div class="sc-label">Standar Deviasi</div>
+                <div class="sc-val" id="dk-st-std">—</div>
+                <div class="sc-unit">mm</div>
+                <div class="sc-hint">Dari nilai tahunan</div>
+            </div>
+        </div>
+    </div>
+
     <div class="empty-state" id="empty-state">
         <div class="es-icon">📊</div>
         <p>Pilih filter di atas dan klik <strong>Tampilkan</strong> untuk melihat data.</p>
@@ -572,7 +691,244 @@ window.setFilterType = function(type) {
     if (thnA) thnA.style.display = (type === 'tahunan') ? thnA.style.display : 'none';
     if (thnB) thnB.style.display = (type === 'tahunan') ? thnB.style.display : 'none';
     if (thnS) thnS.style.display = (type === 'tahunan') ? thnS.style.display : 'none';
+    // Hide dekade cards
+    ['dk-chartP-card','dk-chartQ-card','dk-chartA-card','dk-stat-card'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.style.display = (type==='10tahunan') ? el.style.display : 'none';
+    });
 };
+
+// ═══════════════════════════════════════════════════════════════
+// DEKADE MODE
+// ═══════════════════════════════════════════════════════════════
+let dkData     = null;
+let dkMetric   = 'rerata';
+let dkLineP    = null, dkLineA = null, dkBarA = null;
+
+function updatePeriodLabel() {
+    const ta = +document.getElementById('sel-thn-dk').value;
+    document.getElementById('dk-period-label').innerText = ta + ' – ' + (ta + 9);
+}
+
+async function onKabDekadeChange() {
+    const kabId = document.getElementById('sel-kab-dk').value;
+    const selPos = document.getElementById('sel-pos-dk');
+    selPos.innerHTML = '<option value="">-- SEMUA POS (REKAP KAB) --</option>';
+    if (kabId === 'all') return;
+    const data = await (await fetch('/api/viz/pos?wilayah_id=' + kabId)).json();
+    data.forEach(p => { const o = document.createElement('option'); o.value = p.id_kecamatan; o.text = toTitleCase(p.nama_kecamatan); selPos.appendChild(o); });
+}
+
+function hideDkCards() {
+    ['dk-chartP-card','dk-chartQ-card','dk-chartA-card','dk-stat-card'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+}
+
+async function tampilkanDekade() {
+    const kabId   = document.getElementById('sel-kab-dk').value;
+    const posId   = document.getElementById('sel-pos-dk').value;
+    const tahunA  = +document.getElementById('sel-thn-dk').value;
+    const msgEl   = document.getElementById('dk-invalid-msg');
+
+    document.getElementById('empty-state').style.display = 'none';
+    hideDkCards(); msgEl.style.display = 'none';
+
+    if (tahunA > 2018) {
+        msgEl.innerText = `⚠️ Tahun awal ${tahunA} tidak valid. Gunakan tahun awal ≤ 2018.`;
+        msgEl.style.display = 'block'; return;
+    }
+
+    let url = `/api/viz/dekade-summary?tahun_awal=${tahunA}`;
+    if (posId) url += `&kecamatan_id=${posId}`;
+    else if (kabId !== 'all') url += `&wilayah_id=${kabId}`;
+
+    const res = await fetch(url);
+    dkData = await res.json();
+
+    if (dkData.error) { msgEl.innerText = '⚠️ ' + dkData.error; msgEl.style.display='block'; return; }
+    if (dkData.missing_years && dkData.missing_years.length) {
+        msgEl.innerText = `⚠️ Tahun tidak tersedia dalam DB: ${dkData.missing_years.join(', ')}. Hasil mungkin tidak valid.`;
+        msgEl.style.display = 'block';
+    }
+
+    const ta = dkData.tahun_awal, tb = dkData.tahun_akhir;
+    const kabName = kabId === 'all' ? 'Semua Kabupaten' : toTitleCase(document.getElementById('sel-kab-dk').selectedOptions[0].text);
+    const posName = posId ? toTitleCase(document.getElementById('sel-pos-dk').selectedOptions[0].text) : null;
+    const sub     = (posName ? 'Pos ' + posName.toUpperCase() : kabName) + ` · ${ta}–${tb}`;
+
+    if (dkData.mode === 'provinsi') {
+        // Show P and Q
+        document.getElementById('dk-chartP-title').innerText = 'Akumulasi CH Per Tahun — Semua Kabupaten';
+        document.getElementById('dk-chartP-sub').innerText   = `${ta}–${tb}`;
+        document.getElementById('dk-chartQ-title').innerText = 'Rerata CH Bulanan — Semua Kabupaten';
+        document.getElementById('dk-chartQ-sub').innerText   = `${ta}–${tb}`;
+        document.getElementById('dk-chartP-card').style.display = 'block';
+        document.getElementById('dk-chartQ-card').style.display = 'block';
+        renderDkGrafikP();
+        renderDkHeatmapQ();
+    } else {
+        // Show A (and B if pos)
+        document.getElementById('dk-chartA-title').innerText = `Analisis 10 Tahun — ${posName || kabName}`;
+        document.getElementById('dk-chartA-sub').innerText   = sub;
+        document.getElementById('dk-chartA-card').style.display = 'block';
+        setDkMetric(dkMetric);
+        if (dkData.mode === 'pos' && dkData.stats) {
+            renderDkStatB(posName, ta, tb);
+        }
+    }
+}
+
+// ── Grafik P: multi-line akumulasi per tahun ──
+function renderDkGrafikP() {
+    if (dkLineP) dkLineP.destroy();
+    const entities = dkData.entities_yearly || [];
+    const labels   = entities.length ? entities[0].yearly.map(y => y.tahun) : [];
+    const datasets = entities.map((e, i) => ({
+        label: toTitleCase(e.label),
+        data:  e.yearly.map(y => +y.total),
+        borderColor: LINE_COLORS[i % LINE_COLORS.length],
+        backgroundColor: 'transparent',
+        borderWidth: 1.8, pointRadius: 3, pointHoverRadius: 6, tension: 0.3
+    }));
+    dkLineP = new Chart(document.getElementById('dk-canvas-p'), {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } },
+                    onClick: function(evt, item, legend) {
+                        const chart = legend.chart, idx = item.datasetIndex;
+                        const allHidden = chart.data.datasets.every((_, i) => i===idx ? false : chart.getDatasetMeta(i).hidden);
+                        chart.data.datasets.forEach((_,i) => { chart.getDatasetMeta(i).hidden = allHidden ? false : i!==idx; });
+                        chart.update();
+                    }
+                },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: { x:{title:{display:true,text:'Tahun'}}, y:{title:{display:true,text:'CH (mm)'},min:0} }
+        }
+    });
+}
+
+// ── Grafik Q: heatmap rerata bulanan (kab × bulan) ──
+function renderDkHeatmapQ() {
+    const entities = dkData.entities_monthly || [];
+    let html = `<table class="heatmap-table"><thead><tr><th class="row-label">Entitas</th>`;
+    BULAN_SHORT.forEach(b => html += `<th>${b}</th>`);
+    html += '</tr></thead><tbody>';
+    entities.forEach(e => {
+        html += `<tr><td class="hm-row-label">${toTitleCase(e.label)}</td>`;
+        e.monthly.forEach((d, i) => {
+            const v = +d.rerata_total;
+            const bg = heatmapColor(v, 'total');
+            const tc = textColorFromBg(bg);
+            html += `<td style="background:${bg};" title="${e.label} — ${BULAN_SHORT[i]}: ${v.toFixed(0)} mm">
+                <span class="hm-cell-val" style="color:${tc};">${v>0?v.toFixed(0):''}</span></td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('dk-heatmap-wrap').innerHTML = html;
+}
+
+function downloadDkHeatmap() {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    script.onload = () => html2canvas(document.getElementById('dk-heatmap-wrap'),{scale:2}).then(c=>{
+        const a=document.createElement('a'); a.download='heatmap-dekade.png'; a.href=c.toDataURL('image/png'); a.click();
+    });
+    script.onerror = () => alert('Gunakan screenshot browser.');
+    document.head.appendChild(script);
+}
+
+// ── Konten A: set metric and render ──
+function setDkMetric(m) {
+    dkMetric = m;
+    ['rerata','maksb','makst','kejadian'].forEach(k => document.getElementById('dk-a-'+k).classList.toggle('active', k===m));
+    document.getElementById('dk-kej-legend').style.display = m==='kejadian' ? 'flex' : 'none';
+    renderDkChartA();
+}
+
+function renderDkChartA() {
+    if (!dkData) return;
+    if (dkLineA) { dkLineA.destroy(); dkLineA=null; }
+    if (dkBarA)  { dkBarA.destroy();  dkBarA=null; }
+    const ctx = document.getElementById('dk-canvas-a');
+    const monthly = dkData.monthly || [];
+    const yearly  = dkData.yearly  || [];
+
+    if (dkMetric === 'rerata') {
+        // Line: rerata akumulasi bulanan
+        dkLineA = new Chart(ctx, {
+            type: 'line',
+            data: { labels: BULAN_SHORT,
+                datasets: [{ label:'Rerata Akumulasi (mm)', data: monthly.map(d=>+d.rerata_total),
+                    borderColor:'#3498db', backgroundColor:'rgba(52,152,219,.1)',
+                    fill:true, borderWidth:2, pointRadius:4, pointHoverRadius:7, tension:0.3 }]
+            },
+            options: { responsive:true,
+                plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(1)} mm`}}},
+                scales:{x:{title:{display:true,text:'Bulan'}},y:{title:{display:true,text:'mm'},min:0}} }
+        });
+    } else if (dkMetric === 'maksb') {
+        dkLineA = new Chart(ctx, {
+            type: 'line',
+            data: { labels: BULAN_SHORT,
+                datasets: [{ label:'CH Maks (mm)', data: monthly.map(d=>+d.maks),
+                    borderColor:'#e74c3c', backgroundColor:'rgba(231,76,60,.1)',
+                    fill:true, borderWidth:2, pointRadius:4, pointHoverRadius:7, tension:0.3 }]
+            },
+            options: { responsive:true,
+                plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(1)} mm`}}},
+                scales:{x:{title:{display:true,text:'Bulan'}},y:{title:{display:true,text:'CH Maks (mm)'},min:0}} }
+        });
+    } else if (dkMetric === 'makst') {
+        const labels = yearly.map(y=>y.tahun), vals = yearly.map(y=>+y.maks);
+        const maxV = Math.max(...vals), colors = vals.map(v=>v===maxV?'#c0392b':'#e74c3c');
+        dkLineA = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets: [{ label:'CH Maks/Tahun (mm)', data:vals,
+                borderColor:'#e74c3c', pointBackgroundColor:colors, pointRadius:5, pointHoverRadius:8,
+                fill:false, borderWidth:2, tension:0.2 }]
+            },
+            options: { responsive:true,
+                plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(1)} mm`}}},
+                scales:{x:{title:{display:true,text:'Tahun'}},y:{title:{display:true,text:'CH Maks (mm)'},min:0}} }
+        });
+    } else if (dkMetric === 'kejadian') {
+        dkBarA = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: BULAN_SHORT, datasets: [
+                { label:'Hujan Lebat (≥50 mm)',   data:monthly.map(d=>+d.cnt_lebat),   backgroundColor:'#e67e22', borderRadius:3 },
+                { label:'Hujan Ekstrem (≥100 mm)',data:monthly.map(d=>+d.cnt_ekstrem), backgroundColor:'#e74c3c', borderRadius:3 }
+            ]},
+            options: { responsive:true,
+                plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y} kejadian`}}},
+                scales:{x:{title:{display:true,text:'Bulan'}},y:{title:{display:true,text:'Jumlah Kejadian'},min:0}} }
+        });
+    }
+}
+
+// ── Konten B: statistik 10 tahun (pos only) ──
+function renderDkStatB(posName, ta, tb) {
+    const s = dkData.stats;
+    document.getElementById('dk-st-ratayr').innerText  = (+s.rerata_tahunan).toFixed(1);
+    document.getElementById('dk-st-ratab').innerText   = (+s.rerata_bulanan).toFixed(1);
+    document.getElementById('dk-st-rentang').innerText = (+s.rentang).toFixed(1);
+    document.getElementById('dk-st-cv').innerText      = (+s.cv).toFixed(1);
+    document.getElementById('dk-st-std').innerText     = (+s.std).toFixed(1);
+    const kurt = +s.kurtosis;
+    document.getElementById('dk-st-kurt').innerText      = kurt.toFixed(2);
+    document.getElementById('dk-st-kurt-hint').innerText = kurt>1?'Leptokurtik':kurt<-1?'Platikurtik':'Mesokurtik';
+    document.getElementById('dk-stat-title').innerText = 'Statistik 10 Tahun — ' + toTitleCase(posName);
+    document.getElementById('dk-stat-sub').innerText   = `${ta}–${tb}`;
+    document.getElementById('dk-stat-card').style.display = 'block';
+}
+
+// ══ end DEKADE ══
 
 // ── INIT ──
 async function initFilters(){
@@ -592,6 +948,18 @@ async function initFilters(){
     (years.length?years:[nowY]).forEach(y=>{ const o=document.createElement('option'); o.value=o.text=y; if(y==nowY)o.selected=true; selYt.appendChild(o); });
     const selKt=document.getElementById('sel-kab-t');
     wData.forEach(w=>{ const o=document.createElement('option'); o.value=w.id_wilayah; o.text=toTitleCase(w.nama_wilayah); selKt.appendChild(o); });
+    // Dekade selects — only years ≤ 2018 as start years (need 10 years ahead)
+    const selYdk = document.getElementById('sel-thn-dk');
+    const validStarts = years.filter(y => y <= 2018);
+    (validStarts.length ? validStarts : [2016]).forEach(y => {
+        const o = document.createElement('option');
+        o.value = o.text = y;
+        if (y == 2016) o.selected = true;
+        selYdk.appendChild(o);
+    });
+    const selKdk = document.getElementById('sel-kab-dk');
+    wData.forEach(w => { const o = document.createElement('option'); o.value = w.id_wilayah; o.text = toTitleCase(w.nama_wilayah); selKdk.appendChild(o); });
+    updatePeriodLabel();
 }
 
 async function onKabupatenChange(){
