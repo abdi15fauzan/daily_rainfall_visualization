@@ -125,25 +125,28 @@ def viz_data_kabupaten():
                 df_pos = df_pos.fillna(0)
 
                 # Step 2: agregasi per kabupaten di Python
-                # das1/2/3 = RERATA per pos (sum/n_pos) — konsisten dengan kabupaten view
-                df = df_pos.groupby(['id_wilayah', 'label']).agg(
-                    total   = ('pos_total', 'sum'),
-                    das1    = ('pos_das1',  'mean'),   # rerata per pos
-                    das2    = ('pos_das2',  'mean'),
-                    das3    = ('pos_das3',  'mean'),
-                    hh      = ('pos_hh',    'sum'),
-                    n_pos   = ('id_kecamatan', 'count')
-                ).reset_index()
+                # total  = SUM(pos_total) / COUNT(pos yang pos_total > 0)   [pos 0 dikecualikan]
+                # das1/2/3 = RERATA per pos yang nilainya > 0
+                def agg_kab(grp):
+                    nonzero_total = (grp['pos_total'] > 0).sum()
+                    nonzero_das1  = (grp['pos_das1']  > 0).sum()
+                    nonzero_das2  = (grp['pos_das2']  > 0).sum()
+                    nonzero_das3  = (grp['pos_das3']  > 0).sum()
+                    return pd.Series({
+                        'total': round(grp['pos_total'].sum() / max(nonzero_total, 1), 1),
+                        'das1':  round(grp['pos_das1'].sum()  / max(nonzero_das1,  1), 1),
+                        'das2':  round(grp['pos_das2'].sum()  / max(nonzero_das2,  1), 1),
+                        'das3':  round(grp['pos_das3'].sum()  / max(nonzero_das3,  1), 1),
+                        'hh':    grp['pos_hh'].sum(),
+                        'n_pos': nonzero_total
+                    })
 
-                df['total'] = df['total'].round(1)
-                df['das1']  = df['das1'].round(1)
-                df['das2']  = df['das2'].round(1)
-                df['das3']  = df['das3'].round(1)
+                df = df_pos.groupby(['id_wilayah', 'label']).apply(agg_kab).reset_index()
 
-                # rerata_harian = total_kab / n_pos / hari_dalam_bulan
+                # rerata_harian = total / hari_dalam_bulan (total sudah rerata per pos)
                 df['rerata_harian'] = (
-                    df['total'].astype(float) / df['n_pos'].replace(0, float('nan')) / days_in_month
-                ).round(2).fillna(0)
+                    df['total'].astype(float) / days_in_month
+                ).round(2)
 
                 df = df.sort_values('total', ascending=False)
 
