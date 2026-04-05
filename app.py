@@ -75,43 +75,201 @@ def viz_tahun():
 @app.route('/api/viz/data-kabupaten')
 def viz_data_kabupaten():
     """Agregat per pos dalam satu kabupaten, atau per kabupaten jika wilayah_id=all."""
+    import calendar
     wilayah_id = request.args.get('wilayah_id')
-    tahun  = request.args.get('tahun',  2026)
-    bulan  = request.args.get('bulan',  1)
+    tahun  = int(request.args.get('tahun',  2026))
+    bulan  = int(request.args.get('bulan',  1))
+    days_in_month = int(calendar.monthrange(tahun, bulan)[1])
+
     try:
         with engine2.connect() as conn:
             if wilayah_id and wilayah_id != 'all':
+                # ── PER POS dalam satu kabupaten ──
                 q = text("""
                     SELECT k.nama_kecamatan AS label,
-                        ROUND(SUM(CASE WHEN c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS total,
-                        ROUND(SUM(CASE WHEN c.hari <= 10 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das1,
-                        ROUND(SUM(CASE WHEN c.hari BETWEEN 11 AND 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das2,
-                        ROUND(SUM(CASE WHEN c.hari > 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das3,
+                        COALESCE(ROUND(SUM(CASE WHEN c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1),0) AS total,
+                        COALESCE(ROUND(SUM(CASE WHEN c.hari <= 10 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1),0) AS das1,
+                        COALESCE(ROUND(SUM(CASE WHEN c.hari BETWEEN 11 AND 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1),0) AS das2,
+                        COALESCE(ROUND(SUM(CASE WHEN c.hari > 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1),0) AS das3,
                         COUNT(CASE WHEN c.curah_hujan >= 1 AND c.curah_hujan < 8888 THEN 1 END) AS hh
                     FROM curah_hujan_harian c
                     JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
                     WHERE k.id_wilayah = :wid AND c.tahun = :thn AND c.bulan = :bln
-                    GROUP BY k.nama_kecamatan ORDER BY total DESC
+                    GROUP BY k.id_kecamatan, k.nama_kecamatan
+                    ORDER BY total DESC
                 """)
-                df = pd.read_sql(q, conn, params={'wid': int(wilayah_id), 'thn': int(tahun), 'bln': int(bulan)})
+                df = pd.read_sql(q, conn, params={'wid': int(wilayah_id), 'thn': tahun, 'bln': bulan})
+                df = df.fillna(0)
+                # rerata_harian per pos = total_pos / hari_dalam_bulan
+                df['rerata_harian'] = (df['total'].astype(float) / days_in_month).round(2)
+
             else:
+                # ── PER KABUPATEN (tingkat provinsi) ──
+                # Step 1: ambil data per pos per wilayah
                 q = text("""
-                    SELECT w.nama_wilayah AS label,
-                        ROUND(SUM(CASE WHEN c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS total,
-                        ROUND(SUM(CASE WHEN c.hari <= 10 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das1,
-                        ROUND(SUM(CASE WHEN c.hari BETWEEN 11 AND 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das2,
-                        ROUND(SUM(CASE WHEN c.hari > 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END)::numeric,1) AS das3,
-                        COUNT(CASE WHEN c.curah_hujan >= 1 AND c.curah_hujan < 8888 THEN 1 END) AS hh
+                    SELECT k.id_wilayah,
+                        k.id_kecamatan,
+                        COALESCE(SUM(CASE WHEN c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END),0) AS pos_total,
+                        COALESCE(SUM(CASE WHEN c.hari <= 10 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END),0) AS pos_das1,
+                        COALESCE(SUM(CASE WHEN c.hari BETWEEN 11 AND 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END),0) AS pos_das2,
+                        COALESCE(SUM(CASE WHEN c.hari > 20 AND c.curah_hujan < 8888 THEN c.curah_hujan ELSE 0 END),0) AS pos_das3,
+                        COUNT(CASE WHEN c.curah_hujan >= 1 AND c.curah_hujan < 8888 THEN 1 END) AS pos_hh,
+                        w.nama_wilayah AS label
                     FROM curah_hujan_harian c
                     JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
                     JOIN wilayah w ON k.id_wilayah = w.id_wilayah
                     WHERE c.tahun = :thn AND c.bulan = :bln
-                    GROUP BY w.nama_wilayah ORDER BY total DESC
+                    GROUP BY k.id_wilayah, k.id_kecamatan, w.nama_wilayah
                 """)
-                df = pd.read_sql(q, conn, params={'thn': int(tahun), 'bln': int(bulan)})
+                df_pos = pd.read_sql(q, conn, params={'thn': tahun, 'bln': bulan})
+                df_pos = df_pos.fillna(0)
+
+                # Step 2: agregasi per kabupaten di Python
+                # das1/2/3 = RERATA per pos (sum/n_pos) — konsisten dengan kabupaten view
+                df = df_pos.groupby(['id_wilayah', 'label']).agg(
+                    total   = ('pos_total', 'sum'),
+                    das1    = ('pos_das1',  'mean'),   # rerata per pos
+                    das2    = ('pos_das2',  'mean'),
+                    das3    = ('pos_das3',  'mean'),
+                    hh      = ('pos_hh',    'sum'),
+                    n_pos   = ('id_kecamatan', 'count')
+                ).reset_index()
+
+                df['total'] = df['total'].round(1)
+                df['das1']  = df['das1'].round(1)
+                df['das2']  = df['das2'].round(1)
+                df['das3']  = df['das3'].round(1)
+
+                # rerata_harian = total_kab / n_pos / hari_dalam_bulan
+                df['rerata_harian'] = (
+                    df['total'].astype(float) / df['n_pos'].replace(0, float('nan')) / days_in_month
+                ).round(2).fillna(0)
+
+                df = df.sort_values('total', ascending=False)
+
         return jsonify(df.fillna(0).to_dict(orient='records'))
     except Exception as e:
         return jsonify({'error': str(e)})
+
+@app.route('/api/viz/tahunan-summary')
+def viz_tahunan_summary():
+    """
+    Monthly aggregates per entity for a given year.
+    Modes:
+      - kecamatan_id provided  → single pos, 12-month stats
+      - wilayah_id (not all)   → per-pos monthly stats within that kab
+      - wilayah_id == all/None → per-kab monthly stats (provinsi)
+    """
+    import math
+    tahun = int(request.args.get('tahun', 2023))
+    wilayah_id   = request.args.get('wilayah_id')
+    kecamatan_id = request.args.get('kecamatan_id')
+
+    def safe_float(v):
+        try:
+            f = float(v)
+            return 0.0 if (math.isnan(f) or math.isinf(f)) else round(f, 1)
+        except Exception:
+            return 0.0
+
+    def build_monthly_rows(grp):
+        rows = []
+        for m in range(1, 13):
+            r = grp[grp['bulan'] == m]
+            if len(r) > 0:
+                rows.append({
+                    'bulan':  m,
+                    'total':  safe_float(r['total'].iloc[0]),
+                    'maks':   safe_float(r['maks'].iloc[0]),
+                    'rerata': safe_float(r['rerata'].iloc[0]),
+                    'hh':     int(r['hh'].iloc[0])
+                })
+            else:
+                rows.append({'bulan': m, 'total': 0, 'maks': 0, 'rerata': 0, 'hh': 0})
+        return rows
+
+    try:
+        with engine2.connect() as conn:
+            # ── MODE 1: Specific pos ──
+            if kecamatan_id:
+                q = text("""
+                    SELECT c.bulan,
+                        COALESCE(ROUND(SUM(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE 0 END)::numeric,1),0) AS total,
+                        COALESCE(MAX(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE NULL END),0)              AS maks,
+                        COALESCE(ROUND(AVG(CASE WHEN curah_hujan >= 1 AND curah_hujan < 8888 THEN curah_hujan ELSE NULL END)::numeric,1),0) AS rerata,
+                        COUNT(CASE WHEN curah_hujan >= 1 AND curah_hujan < 8888 THEN 1 END)                       AS hh,
+                        k.nama_kecamatan AS label, w.nama_wilayah AS kab_label
+                    FROM curah_hujan_harian c
+                    JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
+                    JOIN wilayah w ON k.id_wilayah = w.id_wilayah
+                    WHERE c.id_kecamatan = :kid AND c.tahun = :thn
+                    GROUP BY c.bulan, k.nama_kecamatan, w.nama_wilayah
+                    ORDER BY c.bulan
+                """)
+                df = pd.read_sql(q, conn, params={'kid': int(kecamatan_id), 'thn': tahun}).fillna(0)
+                lbl = df['label'].iloc[0] if len(df) > 0 else 'Pos'
+                return jsonify({
+                    'mode': 'pos',
+                    'entities': [{'label': lbl, 'data': build_monthly_rows(df)}]
+                })
+
+            # ── MODE 2: Specific kab → per-pos breakdown ──
+            elif wilayah_id and wilayah_id != 'all':
+                q = text("""
+                    SELECT c.bulan, k.id_kecamatan,
+                        k.nama_kecamatan AS label,
+                        COALESCE(ROUND(SUM(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE 0 END)::numeric,1),0) AS total,
+                        COALESCE(MAX(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE NULL END),0)              AS maks,
+                        COALESCE(ROUND(AVG(CASE WHEN curah_hujan >= 1 AND curah_hujan < 8888 THEN curah_hujan ELSE NULL END)::numeric,1),0) AS rerata,
+                        COUNT(CASE WHEN curah_hujan >= 1 AND curah_hujan < 8888 THEN 1 END)                       AS hh
+                    FROM curah_hujan_harian c
+                    JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
+                    WHERE k.id_wilayah = :wid AND c.tahun = :thn
+                    GROUP BY c.bulan, k.id_kecamatan, k.nama_kecamatan
+                    ORDER BY k.nama_kecamatan, c.bulan
+                """)
+                df = pd.read_sql(q, conn, params={'wid': int(wilayah_id), 'thn': tahun}).fillna(0)
+                entities = []
+                for kid, grp in df.groupby('id_kecamatan'):
+                    entities.append({'label': grp['label'].iloc[0], 'data': build_monthly_rows(grp)})
+                return jsonify({'mode': 'kab', 'entities': entities})
+
+            # ── MODE 3: All → per-kab aggregated ──
+            else:
+                # Get per-pos per-month data, then aggregate per kab
+                q = text("""
+                    SELECT c.bulan, k.id_wilayah, k.id_kecamatan, w.nama_wilayah AS label,
+                        SUM(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE 0 END) AS pos_total,
+                        MAX(CASE WHEN curah_hujan < 8888 THEN curah_hujan ELSE NULL END) AS pos_maks,
+                        AVG(CASE WHEN curah_hujan >= 1 AND curah_hujan < 8888 THEN curah_hujan ELSE NULL END) AS pos_rerata,
+                        COUNT(CASE WHEN curah_hujan >= 1 AND curah_hujan < 8888 THEN 1 END) AS pos_hh
+                    FROM curah_hujan_harian c
+                    JOIN kecamatan k ON c.id_kecamatan = k.id_kecamatan
+                    JOIN wilayah w ON k.id_wilayah = w.id_wilayah
+                    WHERE c.tahun = :thn
+                    GROUP BY c.bulan, k.id_wilayah, k.id_kecamatan, w.nama_wilayah
+                    ORDER BY w.nama_wilayah, c.bulan
+                """)
+                df_pos = pd.read_sql(q, conn, params={'thn': tahun}).fillna(0)
+                # Aggregate per kab per month in Python
+                # total = akumulasi semua pos / jumlah pos yang punya nilai (>0)
+                def kab_agg(grp):
+                    nonzero_total = grp[grp['pos_total'] > 0]['pos_total'].count()
+                    return pd.Series({
+                        'total':  grp['pos_total'].sum() / max(nonzero_total, 1),
+                        'maks':   grp['pos_maks'].max(),
+                        'rerata': grp[grp['pos_rerata'] > 0]['pos_rerata'].mean() if (grp['pos_rerata'] > 0).any() else 0,
+                        'hh':     grp['pos_hh'].sum()
+                    })
+                df_kab = df_pos.groupby(['id_wilayah', 'label', 'bulan']).apply(kab_agg).reset_index()
+                entities = []
+                for wid, grp in df_kab.groupby('id_wilayah'):
+                    entities.append({'label': grp['label'].iloc[0], 'data': build_monthly_rows(grp)})
+                return jsonify({'mode': 'provinsi', 'entities': entities})
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 
 @app.route('/api/viz/data-pos')
 def viz_data_pos():

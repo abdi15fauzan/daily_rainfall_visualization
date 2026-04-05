@@ -969,6 +969,7 @@
         var das2Layer  = L.layerGroup();
         var das3Layer  = L.layerGroup();
         var hhLayer    = L.layerGroup();
+        var idwLayer   = L.layerGroup();
 
         const allLayers = {
             "Hujan Harian"         : dailyLayer,
@@ -976,7 +977,8 @@
             "DAS 1 (Tgl 1-10)"    : das1Layer,
             "DAS 2 (Tgl 11-20)"   : das2Layer,
             "DAS 3 (Tgl 21-Akhir)": das3Layer,
-            "Hari Hujan (HH)"     : hhLayer
+            "Hari Hujan (HH)"     : hhLayer,
+            "Peta Sebaran Hujan"  : idwLayer
         };
         const layerNames  = Object.keys(allLayers);
         const layerValues = Object.values(allLayers);
@@ -989,6 +991,7 @@
             if (name === "DAS 2 (Tgl 11-20)")   return 'das2';
             if (name.includes("DAS 3"))          return 'das3';
             if (name.includes("Hari Hujan"))     return 'hh';
+            if (name === "Peta Sebaran Hujan")  return 'daily';
             return 'daily';
         }
 
@@ -1053,7 +1056,8 @@
             'das1'  : '/static/legends/legend_das1.png',
             'das2'  : '/static/legends/legend_das2.png',
             'das3'  : '/static/legends/legend_das3.png',
-            'hh'    : '/static/legends/legend_hh.png'
+            'hh'    : '/static/legends/legend_hh.png',
+            'idw'   : '/static/legends/legend_daily.png'
         };
 
         // FUNGSI UPDATE GAMBAR LEGENDA
@@ -1133,6 +1137,7 @@
             das2Layer.clearLayers();
             das3Layer.clearLayers();
             hhLayer.clearLayers();
+            idwLayer.clearLayers();
 
             globalTableData = []; sortDirection = {};
             // Judul: "Rekapitulasi {Bulan} {Tahun}  Update: {tgl dipilih}"
