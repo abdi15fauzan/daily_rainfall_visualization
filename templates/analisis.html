@@ -41,7 +41,8 @@
         .footer{background:#333;border-top:5px solid #27ae60;color:white;text-align:center;padding:12px;font-size:13px;margin-top:40px;}
         @media(max-width:768px){.nav-menu{display:none;}}
 
-        .main-wrap{padding:24px 20px;max-width:1500px;margin:0 auto;}
+        .main-wrap{padding:24px 20px;max-width:1500px;margin:0 auto;display:flex;flex-direction:column;align-items:center;}
+        .main-wrap > *{width:100%;max-width:1460px;}
 
         /* ── MODE TABS ── */
         .mode-tabs{display:flex;gap:0;margin-bottom:16px;background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,.06);width:fit-content;}
@@ -119,7 +120,17 @@
         .avail-fill{height:100%;border-radius:3px;}
         .avail-pct{font-size:10px;color:#666;width:40px;flex-shrink:0;}
 
-        /* ── PERIODE BULANAN ── */
+        /* ── POS INFO BOX ── */
+        .pos-info-box{
+            background:#fff;border-radius:10px;padding:12px 20px;
+            box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:16px;
+            display:none;font-size:12.5px;color:#333;line-height:1.8;
+        }
+        .pos-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 40px;max-width:700px;}
+        .pos-info-row{display:flex;gap:6px;}
+        .pos-info-key{color:#555;min-width:90px;font-weight:600;}
+        .pos-info-sep{color:#555;}
+        .pos-info-val{color:#2c3e50;font-weight:500;}
         .state-box{text-align:center;padding:60px 20px;color:#999;}
         .state-box p{font-size:15px;}
 
@@ -181,6 +192,11 @@
     <!-- FILTER PANEL (shared container, content swapped by mode) -->
     <div class="filter-panel" id="filter-panel">
         <!-- Injected by switchMode() -->
+    </div>
+
+    <!-- POS INFO -->
+    <div class="pos-info-box" id="pos-info-box">
+        <div class="pos-info-grid" id="pos-info-grid"></div>
     </div>
 
     <!-- DOWNLOAD BAR -->
@@ -245,9 +261,40 @@ function resetOutput(){
     document.getElementById('main-output').innerHTML='<div class="state-box"><p>📋 Pilih filter di atas lalu klik <strong>Tampilkan</strong>.</p></div>';
     document.getElementById('download-bar').style.display='none';
     document.getElementById('download-bar').innerHTML='';
+    document.getElementById('pos-info-box').style.display='none';
     const ex=document.getElementById('annual-summary-section');
     if(ex) ex.remove();
     if(chartInstance){chartInstance.destroy();chartInstance=null;}
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  POS INFO — tampilkan lokasi, lintang, bujur, kab/kota
+// ══════════════════════════════════════════════════════════════════
+// Kota: Balikpapan, Bontang, Samarinda → "Kota", selain itu "Kabupaten"
+const NAMA_KOTA = ['balikpapan','bontang','samarinda'];
+
+async function showPosInfo(kid,kabName,posName){
+    try{
+        const res=await fetch(`/api/analisis/pos-info?kecamatan_id=${kid}`);
+        const info=await res.json();
+        if(info.error){document.getElementById('pos-info-box').style.display='none';return;}
+
+        const namaBawah=kabName.toLowerCase();
+        const tipeWil=NAMA_KOTA.some(k=>namaBawah.includes(k))?'Kota':'Kabupaten';
+        const kabLabel=`${tipeWil} ${kabName}`;
+
+        const grid=document.getElementById('pos-info-grid');
+        grid.innerHTML=`
+            <div class="pos-info-row"><span class="pos-info-key">Pos Hujan</span><span class="pos-info-sep">:</span><span class="pos-info-val">${posName}</span></div>
+            <div class="pos-info-row"><span class="pos-info-key">Lintang</span><span class="pos-info-sep">:</span><span class="pos-info-val">${info.latitude!==null?info.latitude:'-'}</span></div>
+            <div class="pos-info-row"><span class="pos-info-key">Kecamatan</span><span class="pos-info-sep">:</span><span class="pos-info-val">${posName}</span></div>
+            <div class="pos-info-row"><span class="pos-info-key">Bujur</span><span class="pos-info-sep">:</span><span class="pos-info-val">${info.longitude!==null?info.longitude:'-'}</span></div>
+            <div class="pos-info-row"><span class="pos-info-key">Kab/Kota</span><span class="pos-info-sep">:</span><span class="pos-info-val">${kabLabel}</span></div>`;
+
+        document.getElementById('pos-info-box').style.display='block';
+    }catch(e){
+        document.getElementById('pos-info-box').style.display='none';
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -316,6 +363,7 @@ async function tampilkanTahunan(){
         const posName=document.getElementById('ta-pos').options[document.getElementById('ta-pos').selectedIndex].text;
         const kabName=document.getElementById('ta-kab').options[document.getElementById('ta-kab').selectedIndex].text;
         currentData=data.years; currentMeta={posName,kabName,tahunAwal:tA,tahunAkhir:tB,mode:'tahunan'};
+        await showPosInfo(kid,kabName,posName);
         renderTahunan(data.years,posName);
         renderAnnualSummary(data.years,posName);
         showDlBarTahunan();
@@ -396,6 +444,7 @@ async function tampilkanBulanan(){
         const posName=document.getElementById('bu-pos').options[document.getElementById('bu-pos').selectedIndex].text;
         const kabName=document.getElementById('bu-kab').options[document.getElementById('bu-kab').selectedIndex].text;
         currentData=data; currentMeta={posName,kabName,tahun:thn,bulanAwal:bA,bulanAkhir:bB,mode:'bulanan'};
+        await showPosInfo(kid,kabName,posName);
         renderBulanan(data,posName,thn,bA,bB);
         showDlBarBulanan();
     }catch(e){showError('Gagal memuat: '+e.message);}
@@ -526,9 +575,13 @@ function renderAnnualSummary(years,posName){
     const sec=document.createElement('div');
     sec.id='annual-summary-section'; sec.className='annual-summary';
 
-    const maxJ=Math.max(...years.map(y=>(y.yearly_summary||{}).jumlah||0));
-    const maxM=Math.max(...years.map(y=>(y.yearly_summary||{}).maks||0));
-    const maxH=Math.max(...years.map(y=>(y.yearly_summary||{}).hh||0));
+    // Hanya hitung max dari nilai yang valid (tidak null, tidak 0)
+    const validJ=years.map(y=>(y.yearly_summary||{}).jumlah).filter(v=>v!==null&&v!==undefined&&v>0);
+    const validM=years.map(y=>(y.yearly_summary||{}).maks).filter(v=>v!==null&&v!==undefined&&v>0);
+    const validH=years.map(y=>(y.yearly_summary||{}).hh).filter(v=>v!==null&&v!==undefined&&v>0);
+    const maxJ=validJ.length?Math.max(...validJ):null;
+    const maxM=validM.length?Math.max(...validM):null;
+    const maxH=validH.length?Math.max(...validH):null;
 
     let t=`<h4>📈 Ringkasan Tahunan &mdash; ${posName}</h4>
     <table class="annual-table"><thead><tr>
@@ -536,11 +589,14 @@ function renderAnnualSummary(years,posName){
     </tr></thead><tbody>`;
     years.forEach(yr=>{
         const ys=yr.yearly_summary||{};
+        const isMaxJ=maxJ!==null&&ys.jumlah===maxJ;
+        const isMaxM=maxM!==null&&ys.maks===maxM;
+        const isMaxH=maxH!==null&&ys.hh===maxH;
         t+=`<tr>
             <td><b>${yr.tahun}</b></td>
-            <td${ys.jumlah===maxJ?' class="max-val"':''}>${ys.jumlah!==undefined?ys.jumlah:'-'}</td>
-            <td${ys.maks===maxM?' class="max-val"':''}>${ys.maks!==undefined?ys.maks:'-'}</td>
-            <td${ys.hh===maxH?' class="max-val"':''}>${ys.hh!==undefined?ys.hh:'-'}</td>
+            <td${isMaxJ?' class="max-val"':''}>${ys.jumlah!==undefined?ys.jumlah:'-'}</td>
+            <td${isMaxM?' class="max-val"':''}>${ys.maks!==undefined?ys.maks:'-'}</td>
+            <td${isMaxH?' class="max-val"':''}>${ys.hh!==undefined?ys.hh:'-'}</td>
         </tr>`;
     });
     t+='</tbody></table>';
@@ -611,7 +667,10 @@ function renderBulanan(data,posName,thn,bA,bB){
     let bulanOpts='';
     data.months.forEach(row=>bulanOpts+=`<option value="${row.bulan}">${BULAN_FULL[row.bulan-1]}</option>`);
     chartWrap.innerHTML=`
-        <h4>📊 Grafik CH Harian per Bulan — ${posName}</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+            <h4 style="margin:0;font-size:14px;color:#2c3e50;">📊 Grafik CH Harian per Bulan &mdash; ${posName}</h4>
+            <button class="btn-dl btn-dl-png" onclick="downloadGrafikPng()">⬇ Unduh Grafik (PNG)</button>
+        </div>
         <div class="chart-select-row">
             <label>Pilih Bulan:</label>
             <select id="chart-bulan-sel" onchange="updateChart()">${bulanOpts}</select>
@@ -648,9 +707,8 @@ function updateChart(){
         return n;
     });
 
-    // CH tertinggi → warna merah, lainnya biru
-    const maxVal=Math.max(...values);
-    const colors=values.map(v=>v===maxVal&&v>0?'#e74c3c':'#2980b9');
+    // Semua bar biru — tidak ada pewarnaan merah untuk tertinggi
+    const colors=values.map(()=>'#2980b9');
 
     const ctx=document.getElementById('ch-bar-chart').getContext('2d');
     if(chartInstance){chartInstance.destroy();chartInstance=null;}
@@ -681,12 +739,12 @@ function updateChart(){
             },
             scales:{
                 x:{
-                    title:{display:true,text:'tanggal',font:{size:12},color:'#555'},
+                    title:{display:true,text:'Tanggal',font:{size:12},color:'#555'},
                     grid:{display:false},
                     ticks:{color:'#555',font:{size:11}}
                 },
                 y:{
-                    title:{display:true,text:'curah hujan (mm)',font:{size:12},color:'#555'},
+                    title:{display:true,text:'Curah Hujan (mm)',font:{size:12},color:'#555'},
                     beginAtZero:true,
                     grid:{color:'rgba(0,0,0,0.06)'},
                     ticks:{color:'#555',font:{size:11}}
@@ -710,7 +768,6 @@ function showDlBarBulanan(){
     const bar=document.getElementById('download-bar');
     bar.innerHTML=`
         <button class="btn-dl btn-dl-png"  onclick="downloadTabelPng()">⬇ Unduh Tabel (PNG)</button>
-        <button class="btn-dl btn-dl-png"  onclick="downloadGrafikPng()">⬇ Unduh Grafik (PNG)</button>
         <button class="btn-dl btn-dl-xlsx" onclick="downloadXlsxBulanan()">⬇ Unduh XLSX</button>`;
     bar.style.display='flex';
 }
@@ -907,11 +964,21 @@ function pdfN(v){const n=parseFloat(v);if(isNaN(n)||n===0)return '-';return n%1=
 //  DOWNLOAD — BULANAN PNG (tabel)
 // ══════════════════════════════════════════════════════════════════
 async function downloadTabelPng(){
-    const tbl=document.getElementById('bul-tbl-wrap');
+    const tbl=document.getElementById('bul-table');
     if(!tbl) return;
-    // Use html2canvas via CDN (load on demand)
     await loadHtml2Canvas();
-    const canvas=await html2canvas(tbl,{scale:2,backgroundColor:'#fff'});
+    // Clone table into a clean isolated div for clean capture
+    const wrapper=document.createElement('div');
+    wrapper.style.cssText='position:fixed;left:-9999px;top:0;background:#fff;padding:16px;font-family:Segoe UI,sans-serif;';
+    // Add title
+    const titleEl=document.createElement('p');
+    titleEl.style.cssText='margin:0 0 10px;font-size:13px;font-weight:700;color:#2c3e50;';
+    titleEl.innerText=`📋 Data Curah Hujan Bulanan — ${currentMeta.posName} — Tahun ${currentMeta.tahun}`;
+    wrapper.appendChild(titleEl);
+    wrapper.appendChild(tbl.cloneNode(true));
+    document.body.appendChild(wrapper);
+    const canvas=await html2canvas(wrapper,{scale:2,backgroundColor:'#fff',useCORS:true});
+    document.body.removeChild(wrapper);
     const a=document.createElement('a');
     a.href=canvas.toDataURL('image/png');
     a.download=`Tabel_CH_Bulanan_${currentMeta.posName}_${currentMeta.tahun}.png`;
