@@ -735,5 +735,289 @@ def get_interactive_data():
     except Exception as e:
         return jsonify({'error': str(e)})
 
+# ==============================================================================
+# TAMBAHKAN KODE INI KE app.py — SEBELUM BARIS: if __name__ == '__main__':
+# ==============================================================================
+
+@app.route('/api/analisis/matriks')
+def analisis_matriks():
+    """
+    Matriks CH Harian per pos, per rentang tahun.
+    Params: kecamatan_id, tahun_awal, tahun_akhir
+    Returns: {years: [ {tahun, days, dasarian, monthly, yearly_summary, days_in_month}, ... ]}
+
+    Aturan nilai:
+      - 0–887       → valid
+      - 8888 / 8888.0 → 0.1 mm (Trace), ditampilkan sebagai nilai sangat kecil
+      - 9999          → tidak tersedia → '-'
+      - x > 887 (bukan 8888) → tidak valid → '-'
+
+    Persentase = (hari valid / total hari dalam bulan) * 100
+    Hari valid = baris dengan curah_hujan antara 0 dan 887 inklusif, PLUS 8888.
+    """
+    import calendar, math
+
+    kecamatan_id = request.args.get('kecamatan_id')
+    tahun_awal   = request.args.get('tahun_awal',  type=int)
+    tahun_akhir  = request.args.get('tahun_akhir', type=int)
+
+    if not kecamatan_id:
+        return jsonify({'error': 'kecamatan_id diperlukan'})
+    if not tahun_awal or not tahun_akhir:
+        return jsonify({'error': 'tahun_awal dan tahun_akhir diperlukan'})
+    if tahun_akhir < tahun_awal:
+        return jsonify({'error': 'tahun_akhir tidak boleh lebih kecil dari tahun_awal'})
+    if (tahun_akhir - tahun_awal + 1) > 20:
+        return jsonify({'error': 'Maksimal 20 tahun dalam satu permintaan'})
+
+    def is_valid(v):
+        """Return True jika nilai termasuk dalam perhitungan persentase."""
+        if v is None: return False
+        try:
+            n = float(v)
+        except: return False
+        if math.isnan(n): return False
+        if n == 8888: return True        # trace
+        if 0 <= n <= 887: return True
+        return False  # 9999, >887 (selain 8888)
+
+    def display_val(v):
+        """Return float untuk JSON; None → None."""
+        if v is None: return None
+        try:
+            n = float(v)
+        except: return None
+        if math.isnan(n): return None
+        if n == 8888: return 8888        # frontend tangani sebagai trace
+        if n == 9999: return 9999        # frontend tampilkan sebagai '-'
+        if n > 887:   return 9999        # tidak valid → samakan ke 9999
+        return round(n, 1)
+
+    try:
+        with engine2.connect() as conn:
+            # Ambil semua data sekaligus untuk rentang tahun
+            q = text("""
+                SELECT c.tahun, c.bulan, c.hari, c.curah_hujan
+                FROM curah_hujan_harian c
+                WHERE c.id_kecamatan = :kid
+                  AND c.tahun BETWEEN :ta AND :tb
+                ORDER BY c.tahun, c.bulan, c.hari
+            """)
+            df = pd.read_sql(q, conn, params={
+                'kid': int(kecamatan_id),
+                'ta':  tahun_awal,
+                'tb':  tahun_akhir
+            })
+
+        years_result = []
+
+        for tahun in range(tahun_awal, tahun_akhir + 1):
+            df_yr = df[df['tahun'] == tahun]
+
+            # days_in_month untuk tahun ini
+            dim = {m: calendar.monthrange(tahun, m)[1] for m in range(1, 13)}
+
+            # Build pivot: row per hari (1–31), col per bulan (m1..m12)
+            days_list = []
+            for d in range(1, 32):
+                row = {'hari': d}
+                for m in range(1, 13):
+                    cell = df_yr[(df_yr['bulan'] == m) & (df_yr['hari'] == d)]
+                    if len(cell) > 0:
+                        row[f'm{m}'] = display_val(cell['curah_hujan'].iloc[0])
+                    else:
+                        row[f'm{m}'] = None
+                days_list.append(row)
+
+            # ── Dasarian per bulan ──
+            def dasarian_sum(bulan, das_start, das_end):
+                sub = df_yr[
+                    (df_yr['bulan'] == bulan) &
+                    (df_yr['hari'] >= das_start) &
+                    (df_yr['hari'] <= das_end)
+                ]
+                total = 0
+                for _, r in sub.iterrows():
+                    v = r['curah_hujan']
+                    if v is None: continue
+                    try: n = float(v)
+                    except: continue
+                    if math.isnan(n): continue
+                    if n == 8888: total += 0.1
+                    elif 0 <= n <= 887: total += n
+                    # lainnya tidak dihitung
+                return round(total, 1) if total > 0 else 0
+
+            # Akhir bulan untuk das3
+            def das3_end(m): return dim[m]
+
+            das1 = {m: dasarian_sum(m, 1,  10)        for m in range(1,13)}
+            das2 = {m: dasarian_sum(m, 11, 20)        for m in range(1,13)}
+            das3 = {m: dasarian_sum(m, 21, das3_end(m)) for m in range(1,13)}
+
+            # ── Monthly summary per bulan ──
+            monthly_jumlah = {}
+            monthly_maks   = {}
+            monthly_hh     = {}
+            monthly_pct    = {}
+
+            for m in range(1, 13):
+                sub = df_yr[df_yr['bulan'] == m]
+                total = 0; maks = 0; hh = 0; valid_days = 0
+                for _, r in sub.iterrows():
+                    v = r['curah_hujan']
+                    if v is None: continue
+                    try: n = float(v)
+                    except: continue
+                    if math.isnan(n): continue
+                    if n == 8888:
+                        total += 0.1
+                        valid_days += 1
+                        # 8888 bukan hujan (< 1mm)
+                    elif 0 <= n <= 887:
+                        total      += n
+                        valid_days += 1
+                        if n >= 1:
+                            hh += 1
+                        if n > maks: maks = n
+                    # 9999 / >887: abaikan
+
+                monthly_jumlah[m] = round(total, 1) if total > 0 else 0
+                monthly_maks[m]   = round(maks, 1)
+                monthly_hh[m]     = hh
+                # Persentase = valid_days / total_hari_bulan * 100
+                total_days        = dim[m]
+                monthly_pct[m]    = round(valid_days / total_days * 100, 2) if total_days > 0 else 0
+
+            # ── Yearly summary ──
+            yearly_jumlah = round(sum(monthly_jumlah.values()), 1)
+            yearly_maks   = round(max((monthly_maks[m] for m in range(1,13)), default=0), 1)
+            yearly_hh     = sum(monthly_hh.values())
+
+            years_result.append({
+                'tahun':        tahun,
+                'days':         days_list,
+                'days_in_month': dim,
+                'dasarian': {
+                    'das1': das1,
+                    'das2': das2,
+                    'das3': das3
+                },
+                'monthly': {
+                    'jumlah': monthly_jumlah,
+                    'maks':   monthly_maks,
+                    'hh':     monthly_hh,
+                    'pct':    monthly_pct
+                },
+                'yearly_summary': {
+                    'jumlah': yearly_jumlah,
+                    'maks':   yearly_maks,
+                    'hh':     yearly_hh
+                }
+            })
+
+        return jsonify({'years': years_result})
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+    
+# ==============================================================================
+
+@app.route('/api/analisis/bulanan')
+def analisis_bulanan():
+    """
+    Data CH bulanan per pos untuk rentang bulan dalam satu tahun.
+    Params: kecamatan_id, tahun, bulan_awal, bulan_akhir
+    Returns:
+      {
+        months: [ {bulan, total, maks, hh}, ... ],
+        daily_by_month: { "1": [{hari, curah_hujan}, ...], "2": [...], ... }
+      }
+    """
+    import calendar, math
+
+    kecamatan_id = request.args.get('kecamatan_id')
+    tahun        = request.args.get('tahun',      type=int)
+    bulan_awal   = request.args.get('bulan_awal', type=int, default=1)
+    bulan_akhir  = request.args.get('bulan_akhir',type=int, default=12)
+
+    if not kecamatan_id:
+        return jsonify({'error': 'kecamatan_id diperlukan'})
+    if not tahun:
+        return jsonify({'error': 'tahun diperlukan'})
+    if bulan_akhir < bulan_awal:
+        return jsonify({'error': 'bulan_akhir tidak boleh lebih kecil dari bulan_awal'})
+
+    def is_valid(v):
+        if v is None: return False
+        try: n = float(v)
+        except: return False
+        if math.isnan(n): return False
+        if n == 8888: return True          # trace = valid
+        return 0 <= n <= 887
+
+    def clean_val(v):
+        """Return clean numeric for sum/max, None if invalid."""
+        if v is None: return None
+        try: n = float(v)
+        except: return None
+        if math.isnan(n): return None
+        if n == 9999 or (n > 887 and n != 8888): return None
+        if n == 8888: return 0.1
+        return n
+
+    try:
+        with engine2.connect() as conn:
+            q = text("""
+                SELECT c.bulan, c.hari, c.curah_hujan
+                FROM curah_hujan_harian c
+                WHERE c.id_kecamatan = :kid
+                  AND c.tahun = :thn
+                  AND c.bulan BETWEEN :ba AND :bb
+                ORDER BY c.bulan, c.hari
+            """)
+            df = pd.read_sql(q, conn, params={
+                'kid': int(kecamatan_id),
+                'thn': tahun,
+                'ba':  bulan_awal,
+                'bb':  bulan_akhir
+            })
+
+        months_result     = []
+        daily_by_month    = {}
+
+        for bulan in range(bulan_awal, bulan_akhir + 1):
+            df_b = df[df['bulan'] == bulan]
+            total = 0.0; maks = 0.0; hh = 0
+
+            daily_list = []
+            for _, row in df_b.iterrows():
+                raw = row['curah_hujan']
+                cv  = clean_val(raw)
+                # store raw for frontend display
+                daily_list.append({
+                    'hari': int(row['hari']),
+                    'curah_hujan': float(raw) if raw is not None and not math.isnan(float(raw) if raw is not None else float('nan')) else None
+                })
+                if cv is not None:
+                    total += cv
+                    if cv > maks: maks = cv
+                    if cv >= 1:   hh  += 1
+
+            daily_by_month[str(bulan)] = daily_list
+            months_result.append({
+                'bulan': bulan,
+                'total': round(total, 1) if total > 0 else 0,
+                'maks':  round(maks,  1) if maks  > 0 else 0,
+                'hh':    hh
+            })
+
+        return jsonify({
+            'months':         months_result,
+            'daily_by_month': daily_by_month
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

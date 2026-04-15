@@ -5,84 +5,964 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analisis — Dashboard Iklim Kaltim</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f7f6; }
+
+        /* ── NAVBAR ── */
         .navbar {
-            background: #fff; padding: 0 20px; border-bottom: 3px solid #3498db;
-            display: flex; justify-content: space-between; align-items: center; height: 70px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
+            background:#fff; padding:0 20px; border-bottom:3px solid #3498db;
+            display:flex; justify-content:space-between; align-items:center; height:70px;
+            box-shadow:0 2px 10px rgba(0,0,0,.1); position:sticky; top:0; z-index:1000;
         }
-        .brand-box { display: flex; align-items: center; gap: 15px; }
-        .logo-img   { height: 42px; }
-        .titles h1  { font-size: 17px; margin: 0; color: #2c3e50; font-weight: 700; }
-        .titles p   { font-size: 12px; margin: 0; color: #7f8c8d; }
-        .title-link { text-decoration: none; color: inherit; }
-        .nav-menu { display: flex; gap: 5px; height: 100%; }
-        .nav-item {
-            display: flex; align-items: center; padding: 0 15px; text-decoration: none;
-            color: #555; font-weight: 600; font-size: 14px; cursor: pointer;
-            border-bottom: 3px solid transparent; transition: all .3s;
+        .brand-box{display:flex;align-items:center;gap:15px;}
+        .logo-img{height:42px;}
+        .titles h1{font-size:17px;margin:0;color:#2c3e50;font-weight:700;}
+        .titles p{font-size:12px;margin:0;color:#7f8c8d;}
+        .title-link{text-decoration:none;color:inherit;}
+        .nav-menu{display:flex;gap:5px;height:100%;}
+        .nav-item{
+            display:flex;align-items:center;padding:0 15px;text-decoration:none;
+            color:#555;font-weight:600;font-size:14px;cursor:pointer;
+            border-bottom:3px solid transparent;transition:all .3s;
         }
-        .nav-item:hover { background: #f8f9fa; color: #3498db; }
-        .nav-item.active { border-bottom: 3px solid #3498db; color: #3498db; background: #f0f8ff; }
-        .clock-box {
-            font-family: 'Courier New', monospace; background: #fff0f0; padding: 5px 12px;
-            border-radius: 5px; border: 1px solid #ffcccc; display: flex; flex-direction: column; gap: 2px;
+        .nav-item:hover{background:#f8f9fa;color:#3498db;}
+        .nav-item.active{border-bottom:3px solid #3498db;color:#3498db;background:#f0f8ff;}
+        .clock-box{font-family:'Courier New',monospace;background:#fff0f0;padding:5px 12px;border-radius:5px;border:1px solid #ffcccc;display:flex;flex-direction:column;gap:2px;}
+        .clock-row{display:flex;align-items:center;gap:6px;}
+        .clock-label{font-size:10px;font-weight:700;color:#aaa;width:32px;}
+        .clock-time{font-size:15px;font-weight:800;color:#3980dd;}
+        .date-display{font-size:12px;color:#555;background:#f0f2f5;padding:6px 12px;border-radius:6px;font-weight:600;border:1px solid #e1e4e8;}
+        .right-info{display:flex;align-items:center;gap:15px;}
+        .footer{background:#333;border-top:5px solid #27ae60;color:white;text-align:center;padding:12px;font-size:13px;margin-top:40px;}
+        @media(max-width:768px){.nav-menu{display:none;}}
+
+        .main-wrap{padding:24px 20px;max-width:1500px;margin:0 auto;}
+
+        /* ── MODE TABS ── */
+        .mode-tabs{display:flex;gap:0;margin-bottom:16px;background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,.06);width:fit-content;}
+        .mode-tab{
+            padding:8px 24px;border-radius:7px;font-size:13px;font-weight:600;
+            cursor:pointer;border:none;background:transparent;color:#666;transition:all .2s;
         }
-        .clock-row  { display: flex; align-items: center; gap: 6px; }
-        .clock-label{ font-size: 10px; font-weight: 700; color: #aaa; width: 32px; }
-        .clock-time { font-size: 15px; font-weight: 800; color: #3980dd; }
-        .date-display { font-size: 12px; color: #555; background: #f0f2f5; padding: 6px 12px; border-radius: 6px; font-weight: 600; border: 1px solid #e1e4e8; }
-        .right-info { display: flex; align-items: center; gap: 15px; }
-        .placeholder-page { text-align: center; padding: 100px 20px; color: #7f8c8d; }
-        .placeholder-page h2 { font-size: 48px; margin-bottom: 16px; }
-        .placeholder-page p  { font-size: 16px; }
-        .footer { background: #333; border-top: 5px solid #27ae60; color: white; text-align: center; padding: 12px; font-size: 13px; margin-top: 40px; }
-        @media (max-width: 768px) { .nav-menu { display: none; } }
+        .mode-tab.active{background:#3498db;color:#fff;box-shadow:0 2px 6px rgba(52,152,219,.4);}
+
+        /* ── FILTER PANEL ── */
+        .filter-panel{background:#fff;border-radius:10px;padding:20px 24px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:20px;}
+        .filter-panel h3{margin:0 0 16px;font-size:15px;color:#2c3e50;}
+        .filter-row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;}
+        .filter-group{display:flex;flex-direction:column;gap:5px;}
+        .filter-group label{font-size:12px;font-weight:600;color:#555;}
+        .filter-group select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;color:#333;background:#fff;min-width:175px;}
+        .filter-group select:focus{outline:none;border-color:#3498db;}
+        .btn-tampilkan{background:#2c3e50;color:#fff;border:none;padding:9px 22px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;}
+        .btn-tampilkan:hover{background:#3498db;}
+        .filter-error{color:#e74c3c;font-size:12px;font-weight:600;margin-top:8px;display:none;}
+
+        /* ── DOWNLOAD BAR ── */
+        .download-bar{display:none;gap:10px;margin-bottom:16px;justify-content:flex-end;flex-wrap:wrap;}
+        .btn-dl{padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;}
+        .btn-dl-xlsx{background:#27ae60;color:#fff;}
+        .btn-dl-xlsx:hover{background:#219150;}
+        .btn-dl-pdf{background:#e74c3c;color:#fff;}
+        .btn-dl-pdf:hover{background:#c0392b;}
+        .btn-dl-png{background:#8e44ad;color:#fff;}
+        .btn-dl-png:hover{background:#7d3c98;}
+
+        /* ── MATRIX TABLE ── */
+        .matrix-scroll-box{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow-x:auto;overflow-y:auto;max-height:75vh;}
+        .matrix-wrap{padding:20px;}
+        .matrix-title{font-size:13px;font-weight:700;color:#2c3e50;text-align:center;margin-bottom:8px;text-transform:uppercase;}
+        .matrix-separator{border:none;border-top:2px dashed #ccc;margin:20px 0;}
+
+        table.matrix{border-collapse:collapse;font-size:10.5px;}
+        table.matrix th,table.matrix td{border:1px solid #bbb;padding:2.5px 5px;text-align:center;white-space:nowrap;min-width:34px;}
+        table.matrix thead th{background:#aaaaaa;color:#000;font-weight:700;font-size:9.5px;}
+        /* Row label — abu-abu muda opacity rendah */
+        table.matrix td.row-label{background:rgba(150,150,150,0.15);color:#333;font-weight:700;text-align:left;padding-left:7px;min-width:72px;}
+        /* Data cell — putih bersih, TANPA warna nilai */
+        table.matrix td.data-cell{background:#fff;}
+        table.matrix td.out-range{background:#f2f2f2;}
+        /* Cell kosong karena 9999 / invalid — merah */
+        table.matrix td.invalid-cell{background:rgba(231,76,60,0.25);}
+        /* Dasarian rows */
+        table.matrix tr.das-row td{background:#e8f4e8;font-weight:700;}
+        table.matrix tr.das-row td.row-label{background:rgba(100,160,100,0.20);}
+        /* Section headers */
+        table.matrix tr.sect-hdr td{background:#c8c8c8;font-weight:700;font-size:9px;color:#333;text-align:left;padding-left:7px;}
+        /* Summary rows */
+        table.matrix tr.sum-row td{background:#fafafa;font-weight:600;}
+        table.matrix tr.sum-row td.row-label{background:rgba(150,150,150,0.15);}
+        /* Tahunan rows */
+        table.matrix tr.tahun-row td{background:#e0e8f0;font-weight:700;font-size:9px;}
+        table.matrix tr.tahun-row td.row-label{background:rgba(120,140,180,0.20);}
+
+        /* ── ANNUAL SUMMARY ── */
+        .annual-summary{margin-top:24px;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px 24px;}
+        .annual-summary h4{margin:0 0 14px;font-size:14px;color:#2c3e50;}
+        table.annual-table{border-collapse:collapse;font-size:12px;width:100%;}
+        table.annual-table th{background:#aaa;color:#000;font-weight:700;padding:6px 12px;border:1px solid #bbb;text-align:center;}
+        table.annual-table td{padding:5px 12px;border:1px solid #ddd;text-align:center;}
+        table.annual-table tr:nth-child(even) td{background:#f7f7f7;}
+        table.annual-table td.max-val{background:#e74c3c;color:#fff;font-weight:700;}
+
+        /* ── AVAILABILITY CHART ── */
+        .avail-section{margin-top:20px;}
+        .avail-section h5{margin:0 0 10px;font-size:12px;color:#555;font-weight:600;}
+        .avail-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+        .avail-yr{font-size:11px;color:#444;width:36px;text-align:right;flex-shrink:0;}
+        .avail-bg{flex:1;height:14px;background:#eee;border-radius:3px;overflow:hidden;}
+        .avail-fill{height:100%;border-radius:3px;}
+        .avail-pct{font-size:10px;color:#666;width:40px;flex-shrink:0;}
+
+        /* ── PERIODE BULANAN ── */
+        .state-box{text-align:center;padding:60px 20px;color:#999;}
+        .state-box p{font-size:15px;}
+
+        /* Bulanan result area */
+        .bulanan-result{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px 24px;margin-bottom:24px;}
+        .bulanan-result h4{margin:0 0 16px;font-size:14px;color:#2c3e50;}
+
+        table.bul-table{border-collapse:collapse;font-size:12px;width:auto;min-width:500px;}
+        table.bul-table th{background:#2c3e50;color:#fff;font-weight:700;padding:7px 16px;border:1px solid #555;text-align:center;}
+        table.bul-table th.sub-hdr{background:#3d5068;}
+        table.bul-table td{padding:6px 16px;border:1px solid #ddd;text-align:center;}
+        table.bul-table tr:nth-child(even) td{background:#f7f9fb;}
+        table.bul-table td.bul-label{text-align:left;font-weight:600;background:#f0f2f5;}
+
+        /* Chart container */
+        .chart-outer{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px 24px;margin-bottom:24px;}
+        .chart-outer h4{margin:0 0 12px;font-size:14px;color:#2c3e50;}
+        .chart-select-row{display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+        .chart-select-row label{font-size:12px;font-weight:600;color:#555;}
+        .chart-select-row select{padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;}
+        .chart-canvas-wrap{position:relative;width:100%;max-width:900px;}
     </style>
 </head>
 <body>
+
+<!-- NAVBAR -->
 <div class="navbar">
     <div class="brand-box">
-        <a href="https://www.bmkg.go.id/" target="_blank">
-            <img src="/static/logo.png" class="logo-img">
-        </a>
+        <a href="https://www.bmkg.go.id/" target="_blank"><img src="/static/logo.png" class="logo-img"></a>
         <div class="titles">
             <h1>Dashboard Curah Hujan Harian Kalimantan Timur</h1>
             <p><a href="https://bmkgsamarinda.com/" target="_blank" class="title-link">Stasiun Meteorologi Kelas III Aji Pangeran Tumenggung Pranoto</a></p>
         </div>
     </div>
     <nav class="nav-menu">
-        <a class="nav-item"        href="/">Home</a>
-        <a class="nav-item"        href="/visualisasi">Visualisasi</a>
-        <a class="nav-item"        href="/">Peta Interaktif</a>
+        <a class="nav-item" href="/">Home</a>
+        <a class="nav-item" href="/visualisasi">Visualisasi</a>
+        <a class="nav-item" href="/">Peta Interaktif</a>
         <a class="nav-item active" href="/analisis">Analisis</a>
     </nav>
     <div class="right-info">
         <div class="clock-box">
             <div class="clock-row"><span class="clock-label">WITA</span><span class="clock-time" id="clock-wita">00:00:00</span></div>
-            <div class="clock-row"><span class="clock-label">UTC</span> <span class="clock-time" id="clock-utc">00:00:00</span></div>
+            <div class="clock-row"><span class="clock-label">UTC</span><span class="clock-time" id="clock-utc">00:00:00</span></div>
         </div>
         <div class="date-display" id="header-date">-</div>
     </div>
 </div>
 
-<div class="placeholder-page">
-    <h2>📈</h2>
-    <p>Halaman Analisis (Coming Soon)</p>
+<!-- MAIN -->
+<div class="main-wrap">
+
+    <!-- MODE TABS -->
+    <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-tahunan" onclick="switchMode('tahunan')">📅 Periode Tahunan</button>
+        <button class="mode-tab"        id="tab-bulanan" onclick="switchMode('bulanan')">📆 Periode Bulanan</button>
+    </div>
+
+    <!-- FILTER PANEL (shared container, content swapped by mode) -->
+    <div class="filter-panel" id="filter-panel">
+        <!-- Injected by switchMode() -->
+    </div>
+
+    <!-- DOWNLOAD BAR -->
+    <div class="download-bar" id="download-bar"></div>
+
+    <!-- OUTPUT -->
+    <div id="main-output">
+        <div class="state-box"><p>📋 Pilih filter di atas lalu klik <strong>Tampilkan</strong>.</p></div>
+    </div>
+
 </div>
 
 <div class="footer">&copy; 2025 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda</div>
 
 <script>
-(function tick() {
-    const now = new Date(), pad = n => String(n).padStart(2,'0');
-    document.getElementById('clock-utc').innerText  = `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
-    document.getElementById('clock-wita').innerText = now.toLocaleTimeString('en-GB',{timeZone:'Asia/Makassar',hour12:false});
-    document.getElementById('header-date').innerText = now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short',year:'numeric'});
-    setTimeout(tick, 1000);
+// ══════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════════════════════
+const BULAN     = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const BULAN_FULL= ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+let currentMode  = 'tahunan';
+let currentData  = null;
+let currentMeta  = {};
+let chartInstance= null;
+let kabList=[], thnList=[];
+
+// ── CLOCK ──
+(function tick(){
+    const now=new Date(),pad=n=>String(n).padStart(2,'0');
+    document.getElementById('clock-utc').innerText  =`${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
+    document.getElementById('clock-wita').innerText =now.toLocaleTimeString('en-GB',{timeZone:'Asia/Makassar',hour12:false});
+    document.getElementById('header-date').innerText=now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'short',year:'numeric'});
+    setTimeout(tick,1000);
 })();
+
+// ══════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════
+async function init(){
+    [kabList,thnList]=await Promise.all([
+        fetch('/api/viz/wilayah').then(r=>r.json()),
+        fetch('/api/viz/tahun').then(r=>r.json())
+    ]);
+    switchMode('tahunan');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MODE SWITCH
+// ══════════════════════════════════════════════════════════════════
+function switchMode(mode){
+    currentMode=mode;
+    document.getElementById('tab-tahunan').classList.toggle('active',mode==='tahunan');
+    document.getElementById('tab-bulanan').classList.toggle('active',mode==='bulanan');
+    resetOutput();
+    if(mode==='tahunan') buildFilterTahunan();
+    else                 buildFilterBulanan();
+}
+
+function resetOutput(){
+    currentData=null; currentMeta={};
+    document.getElementById('main-output').innerHTML='<div class="state-box"><p>📋 Pilih filter di atas lalu klik <strong>Tampilkan</strong>.</p></div>';
+    document.getElementById('download-bar').style.display='none';
+    document.getElementById('download-bar').innerHTML='';
+    const ex=document.getElementById('annual-summary-section');
+    if(ex) ex.remove();
+    if(chartInstance){chartInstance.destroy();chartInstance=null;}
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  FILTER — TAHUNAN
+// ══════════════════════════════════════════════════════════════════
+function buildFilterTahunan(){
+    const fp=document.getElementById('filter-panel');
+    fp.innerHTML=`
+    <h3>📊 Filter Matriks CH Harian — Periode Tahunan</h3>
+    <div class="filter-row">
+        <div class="filter-group">
+            <label>Kabupaten</label>
+            <select id="ta-kab"><option value="">-- SEMUA KABUPATEN --</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Pos Hujan</label>
+            <select id="ta-pos" disabled><option value="">-- Pilih Kabupaten Dulu --</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Tahun Awal</label>
+            <select id="ta-tA"></select>
+        </div>
+        <div class="filter-group">
+            <label>Tahun Akhir</label>
+            <select id="ta-tB"></select>
+        </div>
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <button class="btn-tampilkan" onclick="tampilkanTahunan()">Tampilkan</button>
+        </div>
+    </div>
+    <div class="filter-error" id="filter-error"></div>`;
+
+    const selKab=document.getElementById('ta-kab');
+    kabList.forEach(k=>selKab.add(new Option(k.nama_wilayah,k.id_wilayah)));
+
+    const selTA=document.getElementById('ta-tA');
+    const selTB=document.getElementById('ta-tB');
+    [...thnList].reverse().forEach(t=>{selTA.add(new Option(t,t));selTB.add(new Option(t,t));});
+    if(thnList.length){selTA.value=thnList[0];selTB.value=thnList[0];}
+
+    selKab.addEventListener('change',async function(){
+        const wid=this.value,selPos=document.getElementById('ta-pos');
+        selPos.innerHTML='<option value="">-- Pilih Pos --</option>';selPos.disabled=true;
+        if(!wid){selPos.innerHTML='<option value="">-- Pilih Kabupaten Dulu --</option>';return;}
+        const list=await fetch(`/api/viz/pos?wilayah_id=${wid}`).then(r=>r.json());
+        list.forEach(p=>selPos.add(new Option(p.nama_kecamatan,p.id_kecamatan)));
+        selPos.disabled=false;
+    });
+}
+
+async function tampilkanTahunan(){
+    const wid=document.getElementById('ta-kab').value;
+    const kid=document.getElementById('ta-pos').value;
+    const tA=parseInt(document.getElementById('ta-tA').value);
+    const tB=parseInt(document.getElementById('ta-tB').value);
+    if(!wid) return showError('Silahkan pilih Kabupaten terlebih dahulu.');
+    if(!kid) return showError('Silahkan pilih Pos yang ingin ditampilkan.');
+    if(tB<tA) return showError('Tahun akhir tidak boleh lebih kecil dari tahun awal.');
+    if((tB-tA+1)>20) return showError('Maksimal 20 tahun dalam satu tampilan.');
+
+    setLoading();
+    try{
+        const data=await fetch(`/api/analisis/matriks?kecamatan_id=${kid}&tahun_awal=${tA}&tahun_akhir=${tB}`).then(r=>r.json());
+        if(data.error) return showError(data.error);
+        const posName=document.getElementById('ta-pos').options[document.getElementById('ta-pos').selectedIndex].text;
+        const kabName=document.getElementById('ta-kab').options[document.getElementById('ta-kab').selectedIndex].text;
+        currentData=data.years; currentMeta={posName,kabName,tahunAwal:tA,tahunAkhir:tB,mode:'tahunan'};
+        renderTahunan(data.years,posName);
+        renderAnnualSummary(data.years,posName);
+        showDlBarTahunan();
+    }catch(e){showError('Gagal memuat: '+e.message);}
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  FILTER — BULANAN
+// ══════════════════════════════════════════════════════════════════
+function buildFilterBulanan(){
+    const fp=document.getElementById('filter-panel');
+    fp.innerHTML=`
+    <h3>📆 Filter Data CH — Periode Bulanan</h3>
+    <div class="filter-row">
+        <div class="filter-group">
+            <label>Kabupaten</label>
+            <select id="bu-kab"><option value="">-- SEMUA KABUPATEN --</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Pos Hujan</label>
+            <select id="bu-pos" disabled><option value="">-- Pilih Kabupaten Dulu --</option></select>
+        </div>
+        <div class="filter-group">
+            <label>Tahun</label>
+            <select id="bu-thn"></select>
+        </div>
+        <div class="filter-group">
+            <label>Bulan Awal</label>
+            <select id="bu-bA"></select>
+        </div>
+        <div class="filter-group">
+            <label>Bulan Akhir</label>
+            <select id="bu-bB"></select>
+        </div>
+        <div class="filter-group">
+            <label>&nbsp;</label>
+            <button class="btn-tampilkan" onclick="tampilkanBulanan()">Tampilkan</button>
+        </div>
+    </div>
+    <div class="filter-error" id="filter-error"></div>`;
+
+    const selKab=document.getElementById('bu-kab');
+    kabList.forEach(k=>selKab.add(new Option(k.nama_wilayah,k.id_wilayah)));
+
+    const selThn=document.getElementById('bu-thn');
+    [...thnList].reverse().forEach(t=>selThn.add(new Option(t,t)));
+    if(thnList.length) selThn.value=thnList[0];
+
+    const selBA=document.getElementById('bu-bA');
+    const selBB=document.getElementById('bu-bB');
+    BULAN_FULL.forEach((b,i)=>{selBA.add(new Option(b,i+1));selBB.add(new Option(b,i+1));});
+    selBA.value=1; selBB.value=12;
+
+    selKab.addEventListener('change',async function(){
+        const wid=this.value,selPos=document.getElementById('bu-pos');
+        selPos.innerHTML='<option value="">-- Pilih Pos --</option>';selPos.disabled=true;
+        if(!wid){selPos.innerHTML='<option value="">-- Pilih Kabupaten Dulu --</option>';return;}
+        const list=await fetch(`/api/viz/pos?wilayah_id=${wid}`).then(r=>r.json());
+        list.forEach(p=>selPos.add(new Option(p.nama_kecamatan,p.id_kecamatan)));
+        selPos.disabled=false;
+    });
+}
+
+async function tampilkanBulanan(){
+    const wid=document.getElementById('bu-kab').value;
+    const kid=document.getElementById('bu-pos').value;
+    const thn=parseInt(document.getElementById('bu-thn').value);
+    const bA=parseInt(document.getElementById('bu-bA').value);
+    const bB=parseInt(document.getElementById('bu-bB').value);
+    if(!wid) return showError('Silahkan pilih Kabupaten terlebih dahulu.');
+    if(!kid) return showError('Silahkan pilih Pos yang ingin ditampilkan.');
+    if(bB<bA) return showError('Bulan akhir tidak boleh lebih kecil dari bulan awal.');
+
+    setLoading();
+    try{
+        const data=await fetch(`/api/analisis/bulanan?kecamatan_id=${kid}&tahun=${thn}&bulan_awal=${bA}&bulan_akhir=${bB}`).then(r=>r.json());
+        if(data.error) return showError(data.error);
+        const posName=document.getElementById('bu-pos').options[document.getElementById('bu-pos').selectedIndex].text;
+        const kabName=document.getElementById('bu-kab').options[document.getElementById('bu-kab').selectedIndex].text;
+        currentData=data; currentMeta={posName,kabName,tahun:thn,bulanAwal:bA,bulanAkhir:bB,mode:'bulanan'};
+        renderBulanan(data,posName,thn,bA,bB);
+        showDlBarBulanan();
+    }catch(e){showError('Gagal memuat: '+e.message);}
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════════
+function showError(msg){
+    const el=document.getElementById('filter-error');
+    if(el){el.innerText='⚠ '+msg;el.style.display='block';}
+    document.getElementById('main-output').innerHTML='';
+}
+function setLoading(){
+    const el=document.getElementById('filter-error');
+    if(el) el.style.display='none';
+    document.getElementById('main-output').innerHTML='<div class="state-box"><p>⏳ Memuat data...</p></div>';
+    document.getElementById('download-bar').style.display='none';
+}
+
+// ── Value display helpers ──
+// raw → display string: 0→'-', 9999/invalid→'' (merah), 8888→'0.1'
+function dispVal(raw){
+    if(raw===null||raw===undefined) return {v:'', cls:'data-cell'};
+    const n=parseFloat(raw);
+    if(isNaN(n)) return {v:'', cls:'data-cell'};
+    if(n===9999||(n>887&&n!==8888)) return {v:'', cls:'invalid-cell'};
+    if(n===8888) return {v:'0.1', cls:'data-cell'};
+    if(n===0)    return {v:'-',   cls:'data-cell'};
+    return {v: n%1===0?String(n):parseFloat(n.toFixed(1)).toString(), cls:'data-cell'};
+}
+
+function fmtN(v,d=1){
+    if(v===null||v===undefined) return '-';
+    const n=parseFloat(v); if(isNaN(n)||n===0) return '-';
+    return d===0?Math.round(n).toString():parseFloat(n.toFixed(d)).toString();
+}
+function fmtPct(v){ const n=parseFloat(v); return isNaN(n)?'-':n.toFixed(2)+'%'; }
+
+// ══════════════════════════════════════════════════════════════════
+//  RENDER — TAHUNAN (MATRIKS)
+// ══════════════════════════════════════════════════════════════════
+function renderTahunan(years,posName){
+    let html='<div class="matrix-scroll-box"><div class="matrix-wrap">';
+    years.forEach((yr,i)=>{
+        if(i>0) html+='<hr class="matrix-separator">';
+        html+=buildMatrixHtml(yr,posName);
+    });
+    html+='</div></div>';
+    document.getElementById('main-output').innerHTML=html;
+}
+
+function buildMatrixHtml(yr,posName){
+    const dim=yr.days_in_month;
+    let h=`<div class="matrix-title">MATRIKS CH HARIAN &mdash; ${posName.toUpperCase()} &mdash; TAHUN ${yr.tahun}</div>`;
+
+    // ── Tabel utama: TGL/BULAN + 12 bulan ──
+    h+='<table class="matrix"><thead><tr><th style="min-width:72px">TGL/BULAN</th>';
+    BULAN.forEach(b=>h+=`<th>${b}</th>`);
+    h+='</tr></thead><tbody>';
+
+    for(let d=1;d<=10;d++) h+=dayRow(yr,d,dim);
+    for(let d=11;d<=20;d++) h+=dayRow(yr,d,dim);
+    for(let d=21;d<=31;d++) h+=dayRow(yr,d,dim);
+
+    // ── Section Dasarian (dipisah jelas) ──
+    h+='<tr class="sect-hdr"><td colspan="13">Dasarian:</td></tr>';
+    h+=dasRow('01 - 10',yr.dasarian.das1);
+    h+=dasRow('11 - 20',yr.dasarian.das2);
+    h+=dasRow('21 - 31',yr.dasarian.das3);
+
+    // ── Section Bulanan ──
+    h+='<tr class="sect-hdr"><td colspan="13">Bulanan:</td></tr>';
+    h+=sumRow('Jumlah',yr.monthly.jumlah,false);
+    h+=sumRow('Maks',yr.monthly.maks,false);
+    h+=sumRow('Hr Hujan',yr.monthly.hh,false);
+
+    // ── Section Tahunan ──
+    const ys=yr.yearly_summary||{};
+    h+='<tr class="sect-hdr"><td colspan="13">Tahunan:</td></tr>';
+    h+=`<tr class="tahun-row">
+        <td class="row-label">Jumlah:</td>
+        <td colspan="4" style="text-align:left;padding-left:6px">${fmtN(ys.jumlah)} mm</td>
+        <td colspan="3" style="text-align:left;padding-left:6px">Maksimum: ${fmtN(ys.maks)} mm</td>
+        <td colspan="5" style="text-align:left;padding-left:6px">Hari Hujan: ${ys.hh||0} hh</td>
+    </tr>`;
+    h+=sumRow('Persentase',yr.monthly.pct,true);
+
+    h+='</tbody></table>';
+    return h;
+}
+
+function dayRow(yr,d,dim){
+    const row=yr.days.find(r=>r.hari===d)||{};
+    let h=`<tr><td class="row-label">${d}</td>`;
+    for(let m=1;m<=12;m++){
+        if(d>(dim[m]||31)){h+='<td class="out-range"></td>';continue;}
+        const raw=row['m'+m];
+        const {v,cls}=dispVal(raw);
+        h+=`<td class="${cls}">${v||'<span style="color:#ccc">-</span>'}</td>`;
+    }
+    return h+'</tr>';
+}
+
+function dasRow(label,data){
+    let h=`<tr class="das-row"><td class="row-label">${label}</td>`;
+    for(let m=1;m<=12;m++){
+        const v=data?data[m]:null;
+        h+=`<td>${(v&&v!==0)?fmtN(v):'-'}</td>`;
+    }
+    return h+'</tr>';
+}
+
+function sumRow(label,data,isPct){
+    let h=`<tr class="sum-row"><td class="row-label">${label}</td>`;
+    for(let m=1;m<=12;m++){
+        const v=data?data[m]:null;
+        const d=(v!==null&&v!==undefined)?(isPct?fmtPct(v):(v===0?'-':fmtN(v))):'-';
+        h+=`<td>${d}</td>`;
+    }
+    return h+'</tr>';
+}
+
+// ── Annual summary + availability ──
+function renderAnnualSummary(years,posName){
+    const ex=document.getElementById('annual-summary-section');
+    if(ex) ex.remove();
+    const sec=document.createElement('div');
+    sec.id='annual-summary-section'; sec.className='annual-summary';
+
+    const maxJ=Math.max(...years.map(y=>(y.yearly_summary||{}).jumlah||0));
+    const maxM=Math.max(...years.map(y=>(y.yearly_summary||{}).maks||0));
+    const maxH=Math.max(...years.map(y=>(y.yearly_summary||{}).hh||0));
+
+    let t=`<h4>📈 Ringkasan Tahunan &mdash; ${posName}</h4>
+    <table class="annual-table"><thead><tr>
+        <th>Tahun</th><th>Akumulasi CH Tahunan (mm)</th><th>CH Maksimum Tahunan (mm)</th><th>HH Tahunan (hh)</th>
+    </tr></thead><tbody>`;
+    years.forEach(yr=>{
+        const ys=yr.yearly_summary||{};
+        t+=`<tr>
+            <td><b>${yr.tahun}</b></td>
+            <td${ys.jumlah===maxJ?' class="max-val"':''}>${ys.jumlah!==undefined?ys.jumlah:'-'}</td>
+            <td${ys.maks===maxM?' class="max-val"':''}>${ys.maks!==undefined?ys.maks:'-'}</td>
+            <td${ys.hh===maxH?' class="max-val"':''}>${ys.hh!==undefined?ys.hh:'-'}</td>
+        </tr>`;
+    });
+    t+='</tbody></table>';
+    sec.innerHTML=t;
+
+    const avail=document.createElement('div');
+    avail.className='avail-section';
+    let ac='<h5>📊 Persentase Ketersediaan Data per Tahun</h5>';
+    years.forEach(yr=>{
+        const vals=Object.values(yr.monthly.pct||{}).filter(v=>v!==null&&!isNaN(parseFloat(v)));
+        const avg=vals.length?vals.reduce((a,b)=>a+parseFloat(b),0)/vals.length:0;
+        const pct=Math.min(100,Math.round(avg*10)/10);
+        const color=pct>=90?'#27ae60':pct>=70?'#f39c12':'#e74c3c';
+        ac+=`<div class="avail-bar-row">
+            <span class="avail-yr">${yr.tahun}</span>
+            <div class="avail-bg"><div class="avail-fill" style="width:${pct}%;background:${color}"></div></div>
+            <span class="avail-pct">${pct.toFixed(1)}%</span>
+        </div>`;
+    });
+    avail.innerHTML=ac;
+    sec.appendChild(avail);
+    document.querySelector('.main-wrap').appendChild(sec);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  RENDER — BULANAN (TABEL + GRAFIK)
+// ══════════════════════════════════════════════════════════════════
+function renderBulanan(data,posName,thn,bA,bB){
+    const out=document.getElementById('main-output');
+    out.innerHTML='';
+
+    // ── Tabel Bulanan ──
+    const tblDiv=document.createElement('div');
+    tblDiv.className='bulanan-result';
+    tblDiv.id='bul-tbl-wrap';
+    let tblH=`<h4>📋 Data Curah Hujan Bulanan — ${posName} — Tahun ${thn}</h4>
+    <table class="bul-table" id="bul-table">
+        <thead>
+            <tr>
+                <th rowspan="2">Bulan</th>
+                <th colspan="3">${thn}</th>
+            </tr>
+            <tr>
+                <th class="sub-hdr">Curah Hujan (mm)</th>
+                <th class="sub-hdr">Curah Hujan Max (mm)</th>
+                <th class="sub-hdr">Hari Hujan (hari)</th>
+            </tr>
+        </thead><tbody>`;
+    data.months.forEach(row=>{
+        const bName=BULAN_FULL[row.bulan-1];
+        tblH+=`<tr>
+            <td class="bul-label">${bName}</td>
+            <td>${row.total!==null?row.total:'-'}</td>
+            <td>${row.maks!==null?row.maks:'-'}</td>
+            <td>${row.hh!==null?row.hh:'-'}</td>
+        </tr>`;
+    });
+    tblH+='</tbody></table>';
+    tblDiv.innerHTML=tblH;
+    out.appendChild(tblDiv);
+
+    // ── Grafik per bulan ──
+    const chartWrap=document.createElement('div');
+    chartWrap.className='chart-outer';
+    chartWrap.id='bul-chart-wrap';
+
+    // Build bulan selector for chart
+    let bulanOpts='';
+    data.months.forEach(row=>bulanOpts+=`<option value="${row.bulan}">${BULAN_FULL[row.bulan-1]}</option>`);
+    chartWrap.innerHTML=`
+        <h4>📊 Grafik CH Harian per Bulan — ${posName}</h4>
+        <div class="chart-select-row">
+            <label>Pilih Bulan:</label>
+            <select id="chart-bulan-sel" onchange="updateChart()">${bulanOpts}</select>
+        </div>
+        <div class="chart-canvas-wrap">
+            <canvas id="ch-bar-chart" style="max-height:380px;"></canvas>
+        </div>`;
+    out.appendChild(chartWrap);
+
+    // Store daily data globally for chart
+    window._bulananDailyData = data.daily_by_month;
+    window._bulananMeta = {posName, thn};
+
+    // Draw first month's chart
+    if(data.months.length>0){
+        document.getElementById('chart-bulan-sel').value=data.months[0].bulan;
+        updateChart();
+    }
+}
+
+function updateChart(){
+    const selBulan=parseInt(document.getElementById('chart-bulan-sel').value);
+    const dailyData=window._bulananDailyData||{};
+    const {posName,thn}=window._bulananMeta||{};
+    const bName=BULAN_FULL[selBulan-1];
+
+    const days=dailyData[selBulan]||[];
+    const labels=days.map(d=>String(d.hari));
+    const values=days.map(d=>{
+        if(d.curah_hujan===null||d.curah_hujan===undefined) return 0;
+        const n=parseFloat(d.curah_hujan);
+        if(isNaN(n)||n===9999||(n>887&&n!==8888)) return 0;
+        if(n===8888) return 0.1;
+        return n;
+    });
+
+    // CH tertinggi → warna merah, lainnya biru
+    const maxVal=Math.max(...values);
+    const colors=values.map(v=>v===maxVal&&v>0?'#e74c3c':'#2980b9');
+
+    const ctx=document.getElementById('ch-bar-chart').getContext('2d');
+    if(chartInstance){chartInstance.destroy();chartInstance=null;}
+
+    chartInstance=new Chart(ctx,{
+        type:'bar',
+        data:{
+            labels:labels,
+            datasets:[{
+                label:`Curah Hujan (mm)`,
+                data:values,
+                backgroundColor:colors,
+                borderColor:colors,
+                borderWidth:1
+            }]
+        },
+        options:{
+            responsive:true,
+            plugins:{
+                legend:{display:false},
+                title:{
+                    display:true,
+                    text:`Data Curah Hujan ${bName} ${thn}`,
+                    font:{size:14,weight:'bold'},
+                    color:'#2c3e50',
+                    padding:{bottom:12}
+                }
+            },
+            scales:{
+                x:{
+                    title:{display:true,text:'tanggal',font:{size:12},color:'#555'},
+                    grid:{display:false},
+                    ticks:{color:'#555',font:{size:11}}
+                },
+                y:{
+                    title:{display:true,text:'curah hujan (mm)',font:{size:12},color:'#555'},
+                    beginAtZero:true,
+                    grid:{color:'rgba(0,0,0,0.06)'},
+                    ticks:{color:'#555',font:{size:11}}
+                }
+            }
+        }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DOWNLOAD BARS
+// ══════════════════════════════════════════════════════════════════
+function showDlBarTahunan(){
+    const bar=document.getElementById('download-bar');
+    bar.innerHTML=`
+        <button class="btn-dl btn-dl-xlsx" onclick="downloadXlsxTahunan()">⬇ Unduh XLSX</button>
+        <button class="btn-dl btn-dl-pdf"  onclick="downloadPdfTahunan()">⬇ Unduh PDF</button>`;
+    bar.style.display='flex';
+}
+function showDlBarBulanan(){
+    const bar=document.getElementById('download-bar');
+    bar.innerHTML=`
+        <button class="btn-dl btn-dl-png"  onclick="downloadTabelPng()">⬇ Unduh Tabel (PNG)</button>
+        <button class="btn-dl btn-dl-png"  onclick="downloadGrafikPng()">⬇ Unduh Grafik (PNG)</button>
+        <button class="btn-dl btn-dl-xlsx" onclick="downloadXlsxBulanan()">⬇ Unduh XLSX</button>`;
+    bar.style.display='flex';
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DOWNLOAD — TAHUNAN XLSX
+// ══════════════════════════════════════════════════════════════════
+function downloadXlsxTahunan(){
+    if(!currentData) return;
+    const {posName,kabName,tahunAwal,tahunAkhir}=currentMeta;
+    const wb=XLSX.utils.book_new();
+    currentData.forEach(yr=>{
+        const ws=XLSX.utils.aoa_to_sheet(xlsxSheetTahunan(yr,posName));
+        ws['!cols']=[{wch:16},...Array(12).fill({wch:9})];
+
+        // Highlight invalid (9999) cells merah
+        const dim=yr.days_in_month;
+        for(let d=1;d<=31;d++){
+            const rowObj=yr.days.find(r=>r.hari===d)||{};
+            // row in sheet: title=1, blank=2, header=3, then d starts at 3+d (day 1 = row index 3)
+            const xlsxRowBase=3; // 0-indexed rows: row0=title,row1=blank,row2=header
+            const rowIdx=xlsxRowBase+d-1;
+            for(let m=1;m<=12;m++){
+                const raw=rowObj['m'+m];
+                if(raw===null||raw===undefined) continue;
+                const n=parseFloat(raw);
+                if(n===9999||(n>887&&n!==8888)){
+                    const cellAddr=XLSX.utils.encode_cell({r:rowIdx,c:m});
+                    if(!ws[cellAddr]) ws[cellAddr]={t:'s',v:''};
+                    ws[cellAddr].s={fill:{fgColor:{rgb:'FFCCCC'}}};
+                }
+            }
+        }
+        XLSX.utils.book_append_sheet(wb,ws,String(yr.tahun));
+    });
+    const tl=tahunAwal===tahunAkhir?tahunAwal:`${tahunAwal}-${tahunAkhir}`;
+    XLSX.writeFile(wb,`MATRIKS CH Harian ${kabName} Tahun ${tl}.xlsx`);
+}
+
+function xlsxSheetTahunan(yr,posName){
+    const dim=yr.days_in_month,rows=[];
+    rows.push([`MATRIKS CH HARIAN — ${posName.toUpperCase()} — TAHUN ${yr.tahun}`]);
+    rows.push([]);
+    rows.push(['TGL/BULAN',...BULAN]);
+
+    function xlsDayRow(d){
+        const row=yr.days.find(r=>r.hari===d)||{};
+        const cells=[d];
+        for(let m=1;m<=12;m++){
+            if(d>(dim[m]||31)){cells.push('');continue;}
+            const raw=row['m'+m];
+            if(raw===null||raw===undefined){cells.push('');continue;}
+            const n=parseFloat(raw);
+            if(isNaN(n)){cells.push('');continue;}
+            if(n===9999||(n>887&&n!==8888)){cells.push('');continue;} // merah ditangani via style
+            if(n===8888){cells.push(0.1);continue;}
+            cells.push(n===0?'-':n);
+        }
+        return cells;
+    }
+    function xlsDas(label,data){
+        return [label,...Array.from({length:12},(_,i)=>{const v=data?data[i+1]:null;return(v&&v!==0)?v:'-';})];
+    }
+    function xlsNum(label,data){
+        return [label,...Array.from({length:12},(_,i)=>{const v=data?data[i+1]:null;return(v!==null&&v!==undefined&&v!==0)?v:'-';})];
+    }
+    function xlsPct(label,data){
+        return [label,...Array.from({length:12},(_,i)=>{const v=data?data[i+1]:null;return v!==null&&v!==undefined?parseFloat(v).toFixed(2)+'%':'';})];
+    }
+
+    for(let d=1;d<=31;d++) rows.push(xlsDayRow(d));
+    rows.push([]);
+    rows.push(['Dasarian:']);
+    rows.push(xlsDas('01 - 10',yr.dasarian.das1));
+    rows.push(xlsDas('11 - 20',yr.dasarian.das2));
+    rows.push(xlsDas('21 - 31',yr.dasarian.das3));
+    rows.push([]);
+    rows.push(['Bulanan:']);
+    rows.push(xlsNum('Jumlah',yr.monthly.jumlah));
+    rows.push(xlsNum('Maks',yr.monthly.maks));
+    rows.push(xlsNum('Hr Hujan',yr.monthly.hh));
+    rows.push([]);
+    const ys=yr.yearly_summary||{};
+    rows.push(['Tahunan:']);
+    rows.push([`Jumlah: ${ys.jumlah||0} mm`,'','','',`Maksimum: ${ys.maks||0} mm`,'','',`Hari Hujan: ${ys.hh||0} hh`]);
+    rows.push(xlsPct('Persentase',yr.monthly.pct));
+    return rows;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DOWNLOAD — TAHUNAN PDF
+// ══════════════════════════════════════════════════════════════════
+function downloadPdfTahunan(){
+    if(!currentData) return;
+    const {jsPDF}=window.jspdf;
+    const {posName,kabName,tahunAwal,tahunAkhir}=currentMeta;
+    const now=new Date();
+    const ts='Dicetak: '+now.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+
+        ' '+now.toLocaleTimeString('en-GB',{timeZone:'Asia/Makassar',hour12:false})+' WITA';
+    const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const total=currentData.length;
+    currentData.forEach((yr,i)=>{
+        if(i>0) doc.addPage();
+        buildPdfPageTahunan(doc,yr,posName,ts,i+1,total);
+    });
+    const tl=tahunAwal===tahunAkhir?tahunAwal:`${tahunAwal}-${tahunAkhir}`;
+    doc.save(`MATRIKS CH Harian ${kabName} Tahun ${tl}.pdf`);
+}
+
+function buildPdfPageTahunan(doc,yr,posName,ts,pageNum,total){
+    const PW=297,PH=210,FS=5.5,PAD=0.9;
+    const GH=[170,170,170],GL=[215,215,215],GD=[226,240,226],GS=[200,200,200];
+    const GT=[220,230,245],WH=[255,255,255],LT=[250,250,250],RED=[255,200,200];
+
+    doc.setFontSize(6);doc.setFont(undefined,'normal');
+    doc.text(ts,4,6);
+    doc.setFontSize(8.5);doc.setFont(undefined,'bold');
+    doc.text(`MATRIKS CH HARIAN — ${posName.toUpperCase()} — TAHUN ${yr.tahun}`,PW/2,6,{align:'center'});
+
+    const LS={fillColor:GL,textColor:[0,0,0],fontStyle:'bold',fontSize:FS};
+    const DS={fillColor:GD,textColor:[0,0,0],fontStyle:'bold',fontSize:FS};
+
+    function mkDay(d){
+        const row=yr.days.find(r=>r.hari===d)||{};
+        const cells=[{content:String(d),styles:LS}];
+        for(let m=1;m<=12;m++){
+            if(d>(yr.days_in_month[m]||31)){cells.push({content:'',styles:{fillColor:[242,242,242],fontSize:FS}});continue;}
+            const raw=row['m'+m];
+            let dv='', fill=WH;
+            if(raw!==null&&raw!==undefined){
+                const n=parseFloat(raw);
+                if(!isNaN(n)){
+                    if(n===9999||(n>887&&n!==8888)){dv='';fill=RED;}
+                    else if(n===8888){dv='0.1';}
+                    else if(n===0){dv='-';}
+                    else dv=n%1===0?String(n):parseFloat(n.toFixed(1)).toString();
+                }
+            }
+            cells.push({content:dv,styles:{fillColor:fill,fontSize:FS,halign:'center'}});
+        }
+        return cells;
+    }
+    function mkDas(label,data){
+        const cells=[{content:label,styles:DS}];
+        for(let m=1;m<=12;m++){
+            const v=data?data[m]:null;
+            cells.push({content:(v&&v!==0)?pdfN(v):'-',styles:{fillColor:GD,fontSize:FS,halign:'center',fontStyle:'bold'}});
+        }
+        return cells;
+    }
+    function mkSum(label,data,isPct){
+        const cells=[{content:label,styles:LS}];
+        for(let m=1;m<=12;m++){
+            const v=data?data[m]:null;
+            let d='';
+            if(v!==null&&v!==undefined&&v!==0) d=isPct?parseFloat(v).toFixed(2)+'%':pdfN(v);
+            else if(v===0) d='-';
+            cells.push({content:d,styles:{fillColor:LT,fontSize:FS,halign:'center'}});
+        }
+        return cells;
+    }
+
+    const head=[['TGL/BULAN',...BULAN]];
+    const body=[];
+
+    for(let d=1;d<=31;d++) body.push(mkDay(d));
+    body.push([{content:'Dasarian:',colSpan:13,styles:{fillColor:GS,fontStyle:'bold',fontSize:FS,halign:'left'}}]);
+    body.push(mkDas('01 - 10',yr.dasarian.das1));
+    body.push(mkDas('11 - 20',yr.dasarian.das2));
+    body.push(mkDas('21 - 31',yr.dasarian.das3));
+    body.push([{content:'Bulanan:',colSpan:13,styles:{fillColor:GS,fontStyle:'bold',fontSize:FS,halign:'left'}}]);
+    body.push(mkSum('Jumlah',yr.monthly.jumlah,false));
+    body.push(mkSum('Maks',yr.monthly.maks,false));
+    body.push(mkSum('Hr Hujan',yr.monthly.hh,false));
+    const ys=yr.yearly_summary||{};
+    body.push([{content:'Tahunan:',colSpan:13,styles:{fillColor:GS,fontStyle:'bold',fontSize:FS,halign:'left'}}]);
+    body.push([{content:`Jumlah: ${ys.jumlah||0} mm        Maksimum: ${ys.maks||0} mm        Hari Hujan: ${ys.hh||0} hh`,colSpan:13,styles:{fillColor:GT,fontStyle:'bold',fontSize:FS,halign:'left'}}]);
+    body.push(mkSum('Persentase',yr.monthly.pct,true));
+
+    doc.autoTable({head,body,startY:9,theme:'grid',
+        headStyles:{fillColor:GH,textColor:[0,0,0],fontStyle:'bold',fontSize:FS,halign:'center'},
+        styles:{fontSize:FS,cellPadding:PAD,overflow:'hidden'},
+        columnStyles:{0:{cellWidth:17}},
+        margin:{left:4,right:4,bottom:9}
+    });
+    doc.setFontSize(6.5);doc.setFont(undefined,'normal');
+    doc.text('Stasiun Meteorologi APT Pranoto - Samarinda',PW/2,PH-3,{align:'center'});
+    doc.text(`Hal. ${pageNum}/${total}`,PW-4,PH-3,{align:'right'});
+}
+
+function pdfN(v){const n=parseFloat(v);if(isNaN(n)||n===0)return '-';return n%1===0?String(n):parseFloat(n.toFixed(1)).toString();}
+
+// ══════════════════════════════════════════════════════════════════
+//  DOWNLOAD — BULANAN PNG (tabel)
+// ══════════════════════════════════════════════════════════════════
+async function downloadTabelPng(){
+    const tbl=document.getElementById('bul-tbl-wrap');
+    if(!tbl) return;
+    // Use html2canvas via CDN (load on demand)
+    await loadHtml2Canvas();
+    const canvas=await html2canvas(tbl,{scale:2,backgroundColor:'#fff'});
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    a.download=`Tabel_CH_Bulanan_${currentMeta.posName}_${currentMeta.tahun}.png`;
+    a.click();
+}
+
+async function downloadGrafikPng(){
+    const canvas=document.getElementById('ch-bar-chart');
+    if(!canvas) return;
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    const bulan=document.getElementById('chart-bulan-sel')?.value||'';
+    const bName=bulan?BULAN_FULL[parseInt(bulan)-1]:'';
+    a.download=`Grafik_CH_${bName}_${currentMeta.tahun}_${currentMeta.posName}.png`;
+    a.click();
+}
+
+async function loadHtml2Canvas(){
+    if(window.html2canvas) return;
+    await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        s.onload=res; s.onerror=rej; document.head.appendChild(s);
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DOWNLOAD — BULANAN XLSX
+// ══════════════════════════════════════════════════════════════════
+function downloadXlsxBulanan(){
+    if(!currentData) return;
+    const {posName,kabName,tahun,bulanAwal,bulanAkhir}=currentMeta;
+    const wb=XLSX.utils.book_new();
+    const rows=[
+        [`Data Curah Hujan Bulanan — ${posName.toUpperCase()} — Tahun ${tahun}`],[],
+        ['Bulan','Curah Hujan (mm)','Curah Hujan Max (mm)','Hari Hujan (hari)']
+    ];
+    currentData.months.forEach(row=>{
+        rows.push([BULAN_FULL[row.bulan-1], row.total??'-', row.maks??'-', row.hh??'-']);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:14},{wch:20},{wch:22},{wch:18}];
+    const bAName=BULAN_FULL[bulanAwal-1];const bBName=BULAN_FULL[bulanAkhir-1];
+    XLSX.utils.book_append_sheet(wb,ws,`${tahun}`);
+    XLSX.writeFile(wb,`Data CH Bulanan ${kabName} ${tahun} ${bAName}-${bBName}.xlsx`);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════════════
+init();
 </script>
 </body>
 </html>
