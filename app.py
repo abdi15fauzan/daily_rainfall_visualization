@@ -634,7 +634,7 @@ def get_dashboard_data():
         conn = engine.connect()
         # Query Data Harian Hari Ini
         query_daily = text("""
-            SELECT nama_pos, kecamatan, kabupaten, latitude, longitude, 
+            SELECT nama_pos, kecamatan, kabupaten, lintang, bujur, 
                    curah_hujan, TO_CHAR(tanggal, 'DD Mon YYYY') as tanggal_str
             FROM curah_hujan_harian
             WHERE tanggal = CURRENT_DATE
@@ -682,18 +682,18 @@ def get_interactive_data():
         day = selected_date.day
 
         # 1. Query Harian (Titik Peta)
-        query_daily = text(f"SELECT nama_pos, latitude, longitude, curah_hujan FROM curah_hujan_harian WHERE tanggal = '{date_param}'")
+        query_daily = text(f"SELECT nama_pos, lintang, bujur, curah_hujan FROM curah_hujan_harian WHERE tanggal = '{date_param}'")
         df_daily = pd.read_sql(query_daily, conn)
         df_daily['curah_hujan'] = df_daily['curah_hujan'].fillna(0).astype(float)
 
         # 2. Query Akumulasi Bulanan s.d Tanggal Terpilih (Bubble Peta)
         query_accum = text(f"""
-            SELECT nama_pos, latitude, longitude, SUM(curah_hujan) as total_akumulasi
+            SELECT nama_pos, lintang, bujur, SUM(curah_hujan) as total_akumulasi
             FROM curah_hujan_harian
             WHERE EXTRACT(YEAR FROM tanggal) = {year} 
               AND EXTRACT(MONTH FROM tanggal) = {month} 
               AND EXTRACT(DAY FROM tanggal) <= {day}
-            GROUP BY nama_pos, latitude, longitude
+            GROUP BY nama_pos, lintang, bujur
         """)
         df_accum = pd.read_sql(query_accum, conn)
         df_accum['total_akumulasi'] = df_accum['total_akumulasi'].fillna(0).astype(float)
@@ -721,14 +721,14 @@ def get_interactive_data():
         # 4. Query Peta DAS (Agar Popup Muncul di Layer DAS)
         query_das_map = text(f"""
             SELECT 
-                nama_pos, latitude, longitude,
+                nama_pos, lintang, bujur,
                 SUM(CASE WHEN EXTRACT(DAY FROM tanggal) <= 10 THEN curah_hujan ELSE 0 END) as das1_val,
                 SUM(CASE WHEN EXTRACT(DAY FROM tanggal) BETWEEN 11 AND 20 THEN curah_hujan ELSE 0 END) as das2_val,
                 SUM(CASE WHEN EXTRACT(DAY FROM tanggal) > 20 THEN curah_hujan ELSE 0 END) as das3_val
             FROM curah_hujan_harian
             WHERE EXTRACT(YEAR FROM tanggal) = {year} 
               AND EXTRACT(MONTH FROM tanggal) = {month}
-            GROUP BY nama_pos, latitude, longitude
+            GROUP BY nama_pos, lintang, bujur
         """)
         df_das_map = pd.read_sql(query_das_map, conn)
         df_das_map = df_das_map.fillna(0)
@@ -1032,9 +1032,9 @@ def analisis_bulanan():
 @app.route('/api/analisis/pos-info')
 def analisis_pos_info():
     """
-    Ambil latitude & longitude satu pos (kecamatan) dari DB historis.
+    Ambil lintang & bujur satu pos (kecamatan) dari DB historis.
     Params: kecamatan_id
-    Returns: {latitude, longitude}
+    Returns: {lintang, bujur}
     """
     kecamatan_id = request.args.get('kecamatan_id')
     if not kecamatan_id:
@@ -1042,7 +1042,7 @@ def analisis_pos_info():
     try:
         with engine2.connect() as conn:
             q = text("""
-                SELECT latitude, longitude
+                SELECT lintang, bujur
                 FROM kecamatan
                 WHERE id_kecamatan = :kid
                 LIMIT 1
@@ -1052,8 +1052,8 @@ def analisis_pos_info():
             return jsonify({'error': 'Pos tidak ditemukan'})
         row = df.iloc[0]
         return jsonify({
-            'latitude': float(row['latitude']) if row['latitude'] is not None else None,
-            'longitude':   float(row['longitude'])   if row['longitude']   is not None else None
+            'lintang': float(row['lintang']) if row['lintang'] is not None else None,
+            'bujur': float(row['bujur']) if row['bujur'] is not None else None
         })
     except Exception as e:
         return jsonify({'error': str(e)})
