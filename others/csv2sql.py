@@ -12,7 +12,7 @@ SOURCE_URLS = [
     #'https://docs.google.com/spreadsheets/d/e/2PACX-1vSOEy4BaqgfHxvNDRGbaaAvBEyMQqKlY8xmyOOTzGF-iywkQFDM-bFIadLZmx-6RQ-pN2vwLmoRI2qg/pub?gid=770549085&single=true&output=csv'
 ]
 
-DB_URI = 'postgresql://neondb_owner:npg_UMB35qZRoWzf@ep-steep-grass-a1183odj-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
+DB_URI = 'postgresql://neondb_owner:npg_5yVY2jcSWbzP@ep-steep-grass-a1183odj-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
 # =================================================
 
 def clean_numeric(val):
