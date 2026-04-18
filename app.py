@@ -7,6 +7,10 @@ import requests
 import concurrent.futures
 import urllib3
 import os
+from dotenv import load_dotenv
+
+# Muat variabel dari file .env (hanya aktif di lokal, tidak pengaruhi Vercel)
+load_dotenv()
 
 # Matikan warning SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -15,11 +19,16 @@ app = Flask(__name__)
 
 # --- KONFIGURASI DATABASE ---
 # Pastikan password/username sesuai dengan settingan PC Anda
-DB_URI = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:***REMOVED***@ep-steep-grass-a1183odj-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
-engine = create_engine(DB_URI, client_encoding='utf8')
+DB_URI = os.environ.get('DATABASE_URL')
 
 # --- DATABASE KEDUA (Historis — untuk Visualisasi & Analisis) ---
-DB_URI_2 = os.environ.get('DATABASE_URL_2', 'postgresql://neondb_owner:***REMOVED***@ep-empty-cake-a1t7b4fh-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require')
+DB_URI_2 = os.environ.get('DATABASE_URL_2')
+
+if not DB_URI or not DB_URI_2:
+    raise RuntimeError("DATABASE_URL dan DATABASE_URL_2 harus di-set di environment variables!")
+
+
+engine = create_engine(DB_URI, client_encoding='utf8')
 engine2 = create_engine(DB_URI_2, client_encoding='utf8')
 
 @app.route('/')
