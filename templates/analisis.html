@@ -152,6 +152,63 @@
         .chart-select-row label{font-size:12px;font-weight:600;color:#555;}
         .chart-select-row select{padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;}
         .chart-canvas-wrap{position:relative;width:100%;max-width:900px;}
+
+        /* ── PETA TAB CONTENT ── */
+        .peta-tab-wrap{
+            width:100%;max-width:1460px;
+            display:flex;flex-direction:column;align-items:center;gap:0;
+        }
+        .peta-tab-card{
+            background:#fff;border-radius:10px;
+            box-shadow:0 2px 10px rgba(0,0,0,.08);
+            overflow:hidden;width:100%;max-width:960px;
+        }
+        .peta-tab-hdr{
+            background:#2c3e50;color:#fff;
+            padding:14px 24px;font-size:15px;font-weight:700;
+            display:flex;align-items:center;gap:10px;
+        }
+        .peta-tab-img-area{
+            position:relative;background:#dde3e8;
+            min-height:420px;display:flex;
+            align-items:center;justify-content:center;
+            cursor:pointer;overflow:hidden;
+        }
+        .peta-tab-img-area img{
+            width:100%;max-width:100%;
+            display:none;object-fit:contain;
+        }
+        .peta-tab-img-area img.loaded{display:block;}
+        .peta-spinner{
+            display:flex;flex-direction:column;
+            align-items:center;gap:10px;padding:40px;
+            font-size:13px;color:#777;text-align:center;
+        }
+        .peta-spinner .spin{
+            width:36px;height:36px;border:4px solid #ccc;
+            border-top-color:#3498db;border-radius:50%;
+            animation:petaSpin .8s linear infinite;
+        }
+        @keyframes petaSpin{to{transform:rotate(360deg);}}
+        .peta-tab-meta{
+            font-size:12.5px;color:#555;padding:10px 20px;
+            background:#f5f7f8;border-top:1px solid #e0e0e0;
+            display:none;align-items:center;gap:6px;
+        }
+        .peta-tab-actions{
+            display:none;padding:14px 20px;
+            background:#f9f9f9;border-top:1px solid #e8e8e8;
+            gap:12px;flex-wrap:wrap;align-items:center;
+            justify-content:center;
+        }
+        .peta-tab-btn{
+            display:inline-flex;align-items:center;gap:8px;
+            background:#2c3e50;color:#fff;
+            border:none;padding:11px 28px;border-radius:7px;
+            font-size:14px;font-weight:700;cursor:pointer;
+            text-decoration:none;transition:background .2s;
+        }
+        .peta-tab-btn:hover,.peta-tab-btn:focus{background:#3498db;color:#fff;}
     </style>
 </head>
 <body>
@@ -187,10 +244,11 @@
     <div class="mode-tabs">
         <button class="mode-tab active" id="tab-tahunan" onclick="switchMode('tahunan')">📅 Periode Tahunan</button>
         <button class="mode-tab"        id="tab-bulanan" onclick="switchMode('bulanan')">📆 Periode Bulanan</button>
+        <button class="mode-tab"        id="tab-peta"    onclick="switchMode('peta')">🗺️ Analisis Peta Harian</button>
     </div>
 
     <!-- FILTER PANEL (shared container, content swapped by mode) -->
-    <div class="filter-panel" id="filter-panel">
+    <div class="filter-panel" id="filter-panel" style="display:block;">
         <!-- Injected by switchMode() -->
     </div>
 
@@ -207,7 +265,59 @@
         <div class="state-box"><p>📋 Pilih filter di atas lalu klik <strong>Tampilkan</strong>.</p></div>
     </div>
 
-</div>
+    <!-- PETA TAB CONTENT (tersembunyi sampai tab peta dipilih) -->
+    <div id="peta-tab-content" style="display:none;" class="peta-tab-wrap">
+        <div class="peta-tab-card">
+            <div class="peta-tab-hdr">🗺️ Peta Sebaran Curah Hujan Harian — Kalimantan Timur</div>
+            <div class="peta-tab-img-area" id="petaImgArea" onclick="petaOpenLink()">
+                <img id="petaImg" alt="Peta Sebaran CH Harian">
+                <div class="peta-spinner" id="petaSpinner">
+                    <div class="spin"></div>
+                    Memuat peta terbaru…
+                </div>
+                <!-- Fallback: muncul jika CSV 404/error -->
+                <div id="petaUrlForm" style="display:none;padding:28px 32px;width:100%;max-width:520px;text-align:left;">
+                    <div style="font-size:15px;font-weight:700;color:#2c3e50;margin-bottom:6px;">⚙️ Konfigurasi URL Sumber Peta</div>
+                    <div style="font-size:12.5px;color:#555;margin-bottom:14px;line-height:1.6;">
+                        URL CSV Google Sheets tidak dapat diakses (mungkin URL berubah atau belum dipublikasi).<br>
+                        Tempel URL CSV dari menu <strong>File → Bagikan → Publikasi ke web → pilih sheet yang berisi kolom <em>URL_Gambar</em> → Format CSV</strong>.<br>
+                        <span style="color:#888;font-size:11.5px;">Kolom yang digunakan: <strong>A (Tanggal)</strong> dan <strong>I (URL_Gambar)</strong></span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:stretch;">
+                        <input id="petaCsvInput" type="text" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=...&output=csv"
+                            style="flex:1;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:12px;color:#333;"
+                            onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation();retryWithUrl()" 
+                            style="background:#3498db;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                            Muat
+                        </button>
+                    </div>
+                    <div style="margin-top:12px;font-size:11.5px;color:#888;">
+                        💡 Atau tempel langsung URL gambar peta (JPG/PNG) jika tersedia:
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:stretch;margin-top:6px;">
+                        <input id="petaImgInput" type="text" placeholder="https://...gambar-peta.jpg"
+                            style="flex:1;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:12px;color:#333;"
+                            onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation();retryWithImgUrl()"
+                            style="background:#27ae60;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                            Tampilkan
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="peta-tab-meta" id="petaDateBar">
+                🕐 <span id="petaDate">-</span>
+            </div>
+            <div class="peta-tab-actions" id="petaActions">
+                <a class="peta-tab-btn" id="petaLinkBtn" href="#" target="_blank">
+                    🔗 Link Gambar Analisis
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /.main-wrap -->
 
 <div class="footer">&copy; 2025 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda</div>
 
@@ -251,9 +361,30 @@ function switchMode(mode){
     currentMode=mode;
     document.getElementById('tab-tahunan').classList.toggle('active',mode==='tahunan');
     document.getElementById('tab-bulanan').classList.toggle('active',mode==='bulanan');
-    resetOutput();
-    if(mode==='tahunan') buildFilterTahunan();
-    else                 buildFilterBulanan();
+    document.getElementById('tab-peta').classList.toggle('active',mode==='peta');
+
+    const filterPanel  = document.getElementById('filter-panel');
+    const mainOutput   = document.getElementById('main-output');
+    const petaContent  = document.getElementById('peta-tab-content');
+    const posInfoBox   = document.getElementById('pos-info-box');
+    const dlBar        = document.getElementById('download-bar');
+
+    if(mode==='peta'){
+        // Sembunyikan filter & output biasa, tampilkan peta
+        filterPanel.style.display  = 'none';
+        mainOutput.style.display   = 'none';
+        posInfoBox.style.display   = 'none';
+        dlBar.style.display        = 'none';
+        petaContent.style.display  = 'flex';
+    } else {
+        // Tampilkan filter & output biasa, sembunyikan peta
+        filterPanel.style.display  = 'block';
+        mainOutput.style.display   = 'block';
+        petaContent.style.display  = 'none';
+        resetOutput();
+        if(mode==='tahunan') buildFilterTahunan();
+        else                 buildFilterBulanan();
+    }
 }
 
 function resetOutput(){
@@ -1027,9 +1158,184 @@ function downloadXlsxBulanan(){
 }
 
 // ══════════════════════════════════════════════════════════════════
+//  PETA SEBARAN — ambil peta terbaru dari Google Sheets CSV
+// ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  PETA SEBARAN — konfigurasi URL CSV Google Sheets
+//  ► Isi URL di bawah dengan link CSV yang dipublikasi dari Google Sheets
+//    (File → Bagikan → Publikasi ke web → pilih sheet → CSV → salin link)
+//    Kolom yang dipakai: A = Tanggal, I = URL_Gambar
+// ══════════════════════════════════════════════════════════════════
+// URL CSV tidak disimpan di sini — diambil dari backend (/api/config/peta-csv-url)
+// agar tidak terekspos di source HTML dan aman di-push ke GitHub.
+let PETA_CSV_URL = '';
+
+async function initPetaConfig(){
+    try{
+        const res = await fetch('/api/config/peta-csv-url');
+        const d   = await res.json();
+        if(d.url) PETA_CSV_URL = d.url;
+    } catch(_){
+        // Jika gagal fetch config, biarkan kosong → form konfigurasi akan tampil
+    }
+}
+let petaCurrentUrl = '#';
+
+function parseCsvLine(line){
+    const out=[]; let cur='', inQ=false;
+    for(const ch of line){
+        if(ch==='"'){inQ=!inQ;}
+        else if(ch===','&&!inQ){out.push(cur.trim());cur='';}
+        else cur+=ch;
+    }
+    out.push(cur.trim());
+    return out.map(s=>s.replace(/^"|"$/g,'').trim());
+}
+
+async function loadPetaTerbaru(csvUrl){
+    const url      = csvUrl || PETA_CSV_URL;
+    const spinner  = document.getElementById('petaSpinner');
+    const urlForm  = document.getElementById('petaUrlForm');
+    const img      = document.getElementById('petaImg');
+    const dateBar  = document.getElementById('petaDateBar');
+    const dateEl   = document.getElementById('petaDate');
+    const btn      = document.getElementById('petaLinkBtn');
+    const actions  = document.getElementById('petaActions');
+
+    // Jika URL belum dikonfigurasi, langsung tampilkan form
+    if(!url){
+        spinner.style.display='none';
+        urlForm.style.display='block';
+        return;
+    }
+
+    // Reset state
+    spinner.style.display='flex'; spinner.innerHTML='<div class="spin"></div><span>Memuat peta terbaru…</span>';
+    urlForm.style.display='none';
+    img.classList.remove('loaded'); img.src=''; img.style.display='none';
+    dateBar.style.display='none'; actions.style.display='none';
+
+    try{
+        const res = await fetch(url);
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const text = await res.text();
+
+        // Pastikan hasil adalah CSV (bukan HTML error page)
+        if(text.trim().startsWith('<!DOCTYPE')||text.trim().startsWith('<html'))
+            throw new Error('Bukan CSV — pastikan format publikasi adalah CSV');
+
+        const rows = text.trim().split('\n').slice(1).filter(l=>l.trim());
+        if(!rows.length) throw new Error('Data CSV kosong');
+
+        // Cari mundur dari baris terakhir → ambil baris pertama yang punya URL valid
+        let rawDate = '', urlPeta = '';
+        for(let i = rows.length - 1; i >= 0; i--){
+            const p  = parseCsvLine(rows[i]);
+            const d  = p[0]||'';
+            // Kolom B (index 1) = url_peta
+            let u = p[1]||'';
+            // Jika URL tidak dimulai dengan http, coba prefix AppSheet base
+            if(u && !u.startsWith('http')){
+                // Hapus '=' di awal jika ada (artefak formula Sheets)
+                u = u.replace(/^=/, '');
+                if(u.startsWith('Peta&') || u.startsWith('tableName=')){
+                    u = 'https://www.appsheet.com/Template/gettablefileurl?appname=AnalisisCHHarianKaltim-211683618&tableName=' + u;
+                }
+            }
+            if(u && u.startsWith('http')){
+                rawDate = d;
+                urlPeta = u;
+                break;
+            }
+        }
+        if(!urlPeta) throw new Error('Tidak ada URL valid di kolom url_peta — cek isi spreadsheet');
+
+        // Simpan URL aktif agar tombol & klik gambar berfungsi
+        petaCurrentUrl = urlPeta;
+        btn.href = urlPeta;
+
+        // Format tanggal
+        let fmtDate = rawDate;
+        try{
+            const d = new Date(rawDate);
+            if(!isNaN(d)) fmtDate = d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+        }catch(_){}
+        dateEl.textContent = 'Peta terbaru: '+fmtDate;
+
+        // Coba embed gambar
+        applyPetaImage(urlPeta);
+
+    }catch(e){
+        spinner.style.display='none';
+        urlForm.style.display='block';
+        // Tampilkan error kecil di atas form
+        urlForm.querySelector('div').insertAdjacentHTML('afterbegin',
+            `<div style="background:#fdecea;border-radius:6px;padding:8px 12px;font-size:12px;color:#c0392b;margin-bottom:12px;">
+                ⚠️ ${e.message}
+             </div>`
+        );
+    }
+}
+
+function applyPetaImage(urlPeta){
+    const spinner = document.getElementById('petaSpinner');
+    const img     = document.getElementById('petaImg');
+    const dateBar = document.getElementById('petaDateBar');
+    const actions = document.getElementById('petaActions');
+    const btn     = document.getElementById('petaLinkBtn');
+
+    petaCurrentUrl = urlPeta;
+    btn.href = urlPeta;
+
+    img.onload = ()=>{
+        spinner.style.display='none';
+        img.style.display='block'; img.classList.add('loaded');
+        dateBar.style.display='flex'; actions.style.display='flex';
+    };
+    img.onerror = ()=>{
+        // Tidak bisa embed — tampilkan fallback dengan tombol terbuka
+        img.style.display='none';
+        spinner.innerHTML=
+            '<div style="font-size:64px;line-height:1;margin-bottom:14px;">🗺️</div>'+
+            '<div style="font-size:15px;font-weight:700;color:#2c3e50;margin-bottom:6px;">Peta Siap Dibuka</div>'+
+            '<div style="font-size:12.5px;color:#666;max-width:360px;line-height:1.6;">'+
+            'Gambar tidak dapat ditampilkan langsung (perlu sesi AppSheet).<br>'+
+            'Gunakan tombol di bawah untuk membuka peta.</div>';
+        dateBar.style.display='flex'; actions.style.display='flex';
+    };
+    img.src = urlPeta;
+}
+
+// Retry jika user paste URL CSV baru
+function retryWithUrl(){
+    const input = document.getElementById('petaCsvInput').value.trim();
+    if(!input){alert('Tempel URL CSV terlebih dahulu.');return;}
+    // Hapus error lama
+    const errEl = document.querySelector('#petaUrlForm div div[style*="fdecea"]');
+    if(errEl) errEl.remove();
+    PETA_CSV_URL = input;
+    loadPetaTerbaru(input);
+}
+
+// Langsung pakai URL gambar (bypass CSV)
+function retryWithImgUrl(){
+    const input = document.getElementById('petaImgInput').value.trim();
+    if(!input){alert('Tempel URL gambar terlebih dahulu.');return;}
+    document.getElementById('petaUrlForm').style.display='none';
+    document.getElementById('petaSpinner').style.display='flex';
+    applyPetaImage(input);
+}
+
+function petaOpenLink(){
+    if(petaCurrentUrl && petaCurrentUrl!=='#') window.open(petaCurrentUrl,'_blank');
+}
+
+// ══════════════════════════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════════════════════════
 init();
+// Ambil URL dari backend dulu, baru load peta
+initPetaConfig().then(() => loadPetaTerbaru());
 </script>
 </body>
 </html>

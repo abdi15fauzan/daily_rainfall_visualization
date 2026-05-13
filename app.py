@@ -24,6 +24,9 @@ DB_URI = os.environ.get('DATABASE_URL')
 # --- DATABASE KEDUA (Historis — untuk Visualisasi & Analisis) ---
 DB_URI_2 = os.environ.get('DATABASE_URL_2')
 
+# --- SPREADSHEET PETA HARIAN ---
+PETA_CSV_URL = os.environ.get('PETA_CSV_URL', '')
+
 if not DB_URI or not DB_URI_2:
     raise RuntimeError("DATABASE_URL dan DATABASE_URL_2 harus di-set di environment variables!")
 
@@ -1057,5 +1060,14 @@ def analisis_pos_info():
         })
     except Exception as e:
         return jsonify({'error': str(e)})
+
+# ==============================================================================
+# API CONFIG — Kirim PETA_CSV_URL ke frontend (tanpa expose ke source HTML)
+# ==============================================================================
+@app.route('/api/config/peta-csv-url')
+def get_peta_csv_url():
+    return jsonify({'url': PETA_CSV_URL})
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
