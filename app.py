@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from sqlalchemy import create_engine, text
 import pandas as pd
 import json
@@ -7,6 +7,8 @@ import requests
 import concurrent.futures
 import urllib3
 import os
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 
 # Muat variabel dari file .env (hanya aktif di lokal, tidak pengaruhi Vercel)
@@ -34,15 +36,74 @@ if not DB_URI or not DB_URI_2:
 engine = create_engine(DB_URI, client_encoding='utf8')
 engine2 = create_engine(DB_URI_2, client_encoding='utf8')
 
+# ==============================================================================
+# KONFIGURASI LOGIN (untuk halaman Visualisasi & Analisis — khusus admin)
+# ==============================================================================
+# SECRET_KEY wajib di-set di Environment Variables Vercel agar sesi login
+# tidak berubah-ubah setiap kali server restart / cold start.
+app.secret_key = os.environ.get('SECRET_KEY', 'dashboard_iklim')
+
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+
+# Fallback berisi hash dummy (bukan password asli Anda)
+DEFAULT_HASH = generate_password_hash('ganti_password_ini_di_env_vercel')
+
+# Vercel akan otomatis mengambil nilai hash asli dari Environment Variable
+ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH', DEFAULT_HASH)
+
+
+def login_required(f):
+    """Decorator untuk membatasi akses halaman/API hanya untuk user yang sudah login."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            # Kalau yang diakses adalah endpoint API, balas JSON 401 (bukan redirect ke halaman login)
+            if request.path.startswith('/api/'):
+                return jsonify({'error': 'Unauthorized. Silakan login terlebih dahulu.'}), 401
+            return redirect(url_for('login', next=request.path))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        if username == ADMIN_USERNAME and check_password_hash(ADMIN_PASSWORD_HASH, password):
+            session['logged_in'] = True
+            session['username'] = username
+            next_page = request.form.get('next') or request.args.get('next') or url_for('visualisasi')
+            return redirect(next_page)
+        else:
+            error = 'Username atau password salah.'
+    next_page = request.args.get('next', '')
+    return render_template('login.html', error=error, next=next_page)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+# ==============================================================================
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/peta-interaktif')
+def peta_interaktif():
+    return render_template('peta-interaktif.html')
+
 @app.route('/visualisasi')
+@login_required
 def visualisasi():
     return render_template('visualisasi.html')
 
 @app.route('/analisis')
+@login_required
 def analisis():
     return render_template('analisis.html')
 
@@ -51,6 +112,7 @@ def analisis():
 # ==============================================================================
 
 @app.route('/api/viz/wilayah')
+@login_required
 def viz_wilayah():
     try:
         with engine2.connect() as conn:
@@ -62,6 +124,7 @@ def viz_wilayah():
         return jsonify({'error': str(e)})
 
 @app.route('/api/viz/pos')
+@login_required
 def viz_pos():
     wilayah_id = request.args.get('wilayah_id')
     try:
@@ -76,6 +139,7 @@ def viz_pos():
         return jsonify({'error': str(e)})
 
 @app.route('/api/viz/tahun')
+@login_required
 def viz_tahun():
     try:
         with engine2.connect() as conn:
@@ -85,6 +149,7 @@ def viz_tahun():
         return jsonify({'error': str(e)})
 
 @app.route('/api/viz/data-kabupaten')
+@login_required
 def viz_data_kabupaten():
     """Agregat per pos dalam satu kabupaten, atau per kabupaten jika wilayah_id=all."""
     import calendar
@@ -167,6 +232,7 @@ def viz_data_kabupaten():
         return jsonify({'error': str(e)})
 
 @app.route('/api/viz/tahunan-summary')
+@login_required
 def viz_tahunan_summary():
     """
     Monthly aggregates per entity for a given year.
@@ -287,6 +353,7 @@ def viz_tahunan_summary():
 
 
 @app.route('/api/viz/dekade-summary')
+@login_required
 def viz_dekade_summary():
     """
     10-year (dekade) aggregates.
@@ -499,6 +566,7 @@ def viz_dekade_summary():
 
 
 @app.route('/api/viz/data-pos')
+@login_required
 def viz_data_pos():
     """Data harian satu pos dalam satu bulan, termasuk rekap dasarian."""
     kecamatan_id = request.args.get('kecamatan_id')
@@ -752,6 +820,7 @@ def get_interactive_data():
 # ==============================================================================
 
 @app.route('/api/analisis/matriks')
+@login_required
 def analisis_matriks():
     """
     Matriks CH Harian per pos, per rentang tahun.
@@ -936,6 +1005,7 @@ def analisis_matriks():
 # ==============================================================================
 
 @app.route('/api/analisis/bulanan')
+@login_required
 def analisis_bulanan():
     """
     Data CH bulanan per pos untuk rentang bulan dalam satu tahun.
@@ -1033,6 +1103,7 @@ def analisis_bulanan():
         return jsonify({'error': str(e)})
 
 @app.route('/api/analisis/pos-info')
+@login_required
 def analisis_pos_info():
     """
     Ambil lintang & bujur satu pos (kecamatan) dari DB historis.
@@ -1065,6 +1136,7 @@ def analisis_pos_info():
 # API CONFIG — Kirim PETA_CSV_URL ke frontend (tanpa expose ke source HTML)
 # ==============================================================================
 @app.route('/api/config/peta-csv-url')
+@login_required
 def get_peta_csv_url():
     return jsonify({'url': PETA_CSV_URL})
 

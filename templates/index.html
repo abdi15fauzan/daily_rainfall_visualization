@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Iklim Kaltim</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+
     <style>
         /* --- GLOBAL STYLE --- */
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; overflow: hidden; }
-        
+
         /* NAVBAR */
         .navbar {
             background: #fff; padding: 0 20px; border-bottom: 3px solid #3498db;
@@ -19,11 +19,11 @@
         }
         .brand-box { display: flex; align-items: center; gap: 15px; }
         .logo-img { height: 42px; width: auto; transition: transform 0.2s; }
-        .logo-img:hover { transform: scale(1.05); } 
-        
+        .logo-img:hover { transform: scale(1.05); }
+
         .titles h1 { font-size: 17px; margin: 0; color: #2c3e50; font-weight: 700; }
         .titles p { font-size: 12px; margin: 0; color: #7f8c8d; }
-        
+
         .title-link { text-decoration: none; color: inherit; transition: color 0.2s; }
         .title-link:hover { color: #3498db; }
 
@@ -61,9 +61,77 @@
         .pulse-marker .ring { width: 16px; height: 16px; border-radius: 50%; position: absolute; top: 0; left: 0; animation: pulse-ring 1.8s ease-out infinite; }
         .pulse-marker .ring2 { animation-delay: 0.6s; }
 
-        /* SECTIONS */
-        .section-view { display: none; height: calc(100vh - 115px); width: 100%; position: relative; } 
-        .section-view.active { display: block; }
+        /* PAGE BODY (HOME) */
+        .page-view { height: calc(100vh - 115px); width: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* ── HOME TABS (Peta Harian / Analisis Peta Harian) ── */
+        .home-tabs-bar { flex: 0 0 auto; display: flex; justify-content: center; padding: 12px 0; background: #f4f7f6; z-index: 1500; }
+        .mode-tabs { display: flex; gap: 0; background: #fff; border-radius: 10px; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); width: fit-content; }
+        .mode-tab { padding: 8px 24px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: #666; transition: all .2s; }
+        .mode-tab.active { background: #3498db; color: #fff; box-shadow: 0 2px 6px rgba(52,152,219,.4); }
+        .mode-tab:hover:not(.active) { background: #f0f4f8; color: #3498db; }
+
+        .home-content-area { flex: 1 1 auto; position: relative; overflow: hidden; }
+        .home-tab-view { position: absolute; inset: 0; }
+
+        /* ── PETA HARIAN: MAP STAGE / WINDOW VIEW / FULL VIEW ── */
+        .map-stage {
+            width: 100%; height: 100%; box-sizing: border-box;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px; background: #f4f7f6; overflow: auto;
+        }
+        .map-box {
+            position: relative; width: 100%; height: 100%;
+            max-width: 1280px; max-height: 720px; /* 16:9 — 1280x720 */
+            aspect-ratio: 16 / 9;
+            border-radius: 16px; overflow: hidden;
+            border: 3px solid #aab4bd;
+            box-shadow: 0 10px 34px rgba(0,0,0,.18);
+            background: #dde3e8;
+        }
+        .map-box:fullscreen, .map-box:-webkit-full-screen {
+            max-width: none; max-height: none; aspect-ratio: unset;
+            width: 100vw; height: 100vh; border-radius: 0; border: none;
+        }
+        .map-box-controls {
+            position: absolute; top: 14px; right: 14px; z-index: 10001;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .map-ctrl-btn {
+            width: 38px; height: 38px; border-radius: 8px; border: none;
+            background: #fff; color: #2c3e50; box-shadow: 0 2px 8px rgba(0,0,0,.22);
+            cursor: pointer; font-size: 16px; display: flex; align-items: center;
+            justify-content: center; transition: background .2s, color .2s;
+        }
+        .map-ctrl-btn:hover { background: #3498db; color: #fff; }
+
+        @media screen and (max-width: 768px) {
+            .map-stage { padding: 10px; }
+            .map-box { border-radius: 12px; max-height: none; }
+            .map-box-controls { top: 8px; right: 8px; gap: 6px; }
+            .map-ctrl-btn { width: 32px; height: 32px; font-size: 13px; border-radius: 7px; }
+        }
+
+        /* ── ANALISIS PETA HARIAN (dipindahkan dari menu Analisis) ── */
+        #analisis-peta-view { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; align-items: center; background: #f4f7f6; }
+        .peta-tab-wrap { width: 100%; max-width: 1460px; display: flex; flex-direction: column; align-items: center; gap: 0; }
+        .peta-tab-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.08); overflow: hidden; width: 100%; max-width: 960px; }
+        .peta-tab-hdr { background: #2c3e50; color: #fff; padding: 14px 24px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .peta-tab-img-area { position: relative; background: #dde3e8; min-height: 420px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; }
+        .peta-tab-img-area img { width: 100%; max-width: 100%; display: none; object-fit: contain; }
+        .peta-tab-img-area img.loaded { display: block; }
+        .peta-spinner { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px; font-size: 13px; color: #777; text-align: center; }
+        .peta-spinner .spin { width: 36px; height: 36px; border: 4px solid #ccc; border-top-color: #3498db; border-radius: 50%; animation: petaSpin .8s linear infinite; }
+        @keyframes petaSpin { to { transform: rotate(360deg); } }
+        .peta-tab-meta { font-size: 12.5px; color: #555; padding: 10px 20px; background: #f5f7f8; border-top: 1px solid #e0e0e0; display: none; align-items: center; gap: 6px; }
+        .peta-tab-actions { display: none; padding: 14px 20px; background: #f9f9f9; border-top: 1px solid #e8e8e8; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: center; }
+        .peta-tab-btn { display: inline-flex; align-items: center; gap: 8px; background: #2c3e50; color: #fff; border: none; padding: 11px 28px; border-radius: 7px; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; transition: background .2s; }
+        .peta-tab-btn:hover, .peta-tab-btn:focus { background: #3498db; color: #fff; }
+
+        @media screen and (max-width: 768px) {
+            .home-tabs-bar { padding: 8px 0; }
+            .mode-tab { padding: 7px 14px; font-size: 11.5px; }
+        }
 
         /* FOOTER BAR */
         .footer {
@@ -75,7 +143,8 @@
         }
 
         /* WIDGETS */
-        .weather-widget { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 900px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 999; overflow: hidden; }
+        .weather-widget { position: absolute; top: 15px; left: 50%; --ww-scale: 0.6; transform: translateX(-50%) scale(var(--ww-scale)); transform-origin: top center; width: 80%; max-width: 900px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 999; overflow: hidden; }
+        #mapBox:fullscreen .weather-widget, #mapBox:-webkit-full-screen .weather-widget { --ww-scale: 1; }
         .weather-header { background: #f1c40f; color: #333; padding: 8px 15px; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; z-index: 2; position: relative; }
         .weather-marquee { overflow: hidden; white-space: nowrap; position: relative; padding: 10px 0; }
         .weather-track { display: flex; gap: 0; width: fit-content; animation: scroll-left 40s linear infinite; }
@@ -88,57 +157,44 @@
         .wc-desc { font-size: 11px; color: #7f8c8d; }
 
         /* WIDGET TOP 10 */
-        /*.top10-container { 
-            position: absolute; bottom: 20px; left: 20px; 
-            width: 350px; background: #2c3e50; border-radius: 8px; overflow: hidden; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 999; font-family: 'Segoe UI', sans-serif; border: 1px solid #34495e; 
-        }
-        .top10-header { background: #27ae60; color: white; padding: 10px; font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
-        .top10-table { width: 100%; border-collapse: collapse; font-size: 11px; color: #ecf0f1; }
-        .top10-table th { background: #34495e; padding: 8px; text-align: left; border-bottom: 1px solid #465c71; }
-        .top10-table td { padding: 6px 8px; border-bottom: 1px solid #3e5063; }
-        .top10-val-col { color: white; font-weight: bold; text-align: center; width: 80px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-        .top10-scroll { max-height: 250px; overflow-y: auto; }
-        .top10-scroll::-webkit-scrollbar { width: 5px; }
-        .top10-scroll::-webkit-scrollbar-thumb { background: #7f8c8d; border-radius: 3px; }*/
         .top10-container {
             position: absolute;
-            /* POSISI AWAL (Kiri Bawah) */
-            bottom: 20px; 
-            left: 20px; 
-            right: auto; /* Reset properti kanan */
+            bottom: 20px;
+            left: 20px;
+            right: auto;
 
-            width: 350px; 
-            background: #2c3e50; 
+            width: 350px;
+            background: #2c3e50;
             border-radius: 8px;
-            overflow: hidden; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
-            z-index: 9999; 
-            font-family: 'Segoe UI', sans-serif; 
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 9999;
+            font-family: 'Segoe UI', sans-serif;
             border: 1px solid #34495e;
 
-            /*Animasi transisi*/
             transition: all 0.3s ease;
             opacity: 1;
             visibility: visible;
-            transform: translateY(0);
+            --top10-scale: 0.6;
+            transform: translateY(0) scale(var(--top10-scale));
+            transform-origin: bottom left;
         }
+        #mapBox:fullscreen .top10-container, #mapBox:-webkit-full-screen .top10-container { --top10-scale: 1; }
 
-        /*Kelas untuk menyembunyikan Tabel*/
         .top10-container.hidden {
             opacity: 0;
             visibility: hidden;
-            transform: translateY(20px);
+            transform: translateY(20px) scale(var(--top10-scale));
             pointer-events: none;
         }
         .top10-header {
-            background: #27ae60; 
-            color: white; 
-            padding: 10px; 
-            font-size: 13px; 
-            font-weight: bold; 
-            display: flex; 
-            justify-content: space-between; 
+            background: #27ae60;
+            color: white;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
             align-items: center
         }
 
@@ -162,8 +218,6 @@
         /* TOMBOL PEMICU (MUNCUL SAAT TABEL DITUTUP) */
         .toggle-trigger-btn {
             position: absolute;
-
-            /* POSISI SAMA DENGAN CONTAINER (Kiri Bawah) */
             bottom: 20px;
             left: 20px;
             right: auto;
@@ -184,106 +238,11 @@
         }
 
         .toggle-trigger-btn:hover { background: #219150; }
-        /* Sembunyikan tombol saat tabel sedang terbuka */
         .toggle-trigger-btn.active { display: none; }
-        
-        
+
         /* MAP FULL SCREEN */
         #map { width: 100%; height: 100%; }
 
-        /* INTERACTIVE PAGE (FULL MAP) */
-        .interactive-container { padding: 0; height: 100%; width: 100%; position: relative; }
-        .controls { 
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: white; padding: 10px 20px; border-radius: 50px; 
-            display: none; align-items: center; gap: 15px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1001; border: 1px solid #ddd;
-        }
-        .close-controls-desktop {
-            cursor: pointer;
-            color: #e74c3c;
-            font-weight: bold;
-            font-size: 20px;
-            margin-right: 5px;
-            line-height: 1;
-        }
-        .close-controls-desktop:hover {
-        color: #c0392b;
-        }
-        .date-picker { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-        .btn-load { padding: 8px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        #map-interactive { height: 100%; width: 100%; z-index: 1; }
-
-        /* --- TABLE OVERLAY STYLE --- */
-        .btn-toggle-table {
-            position: absolute; top: 80px; right: 20px;
-            background: #34495e; color: white; border: none; padding: 10px 15px;
-            border-radius: 50px; cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1002;
-            font-weight: bold; display: flex; align-items: center; gap: 8px;
-            transition: background 0.3s;
-        }
-        .btn-toggle-table:hover { background: #2c3e50; }
-
-        .table-overlay {
-            position: absolute; top: 135px; right: 20px;
-            width: 450px; max-height: calc(100% - 150px);
-            background: rgba(44, 62, 80, 0.95);
-            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            z-index: 3; display: flex; flex-direction: column;
-            overflow: hidden; backdrop-filter: blur(5px);
-            border: 1px solid #34495e; transition: transform 0.3s ease-in-out;
-
-        }
-        .table-overlay.hidden { transform: translateX(120%); }
-        
-        .tbl-header {
-            background: #34495e; color: #ecf0f1; padding: 12px 15px;
-            font-weight: bold; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 2px solid #2c3e50;
-        }
-        .tbl-content { overflow-y: auto; flex: 1; }
-        .tbl-content::-webkit-scrollbar { width: 6px; }
-        .tbl-content::-webkit-scrollbar-thumb { background: #7f8c8d; border-radius: 3px; }
-        
-        .data-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #bdc3c7; }
-        .data-table th {
-            background: #2c3e50; position: sticky; top: 0; padding: 10px;
-            text-align: right; font-weight: 600; color: #3498db; 
-            box-shadow: 0 2px 2px rgba(0,0,0,0.1); 
-            cursor: pointer; user-select: none;
-        }
-        .data-table th:hover { background: #34495e; color: #fff; }
-        .data-table th:first-child { text-align: left; }
-        .data-table td { padding: 8px 10px; border-bottom: 1px solid #3e5063; text-align: right; }
-        .data-table td:first-child { text-align: left; color: #ecf0f1; font-weight: 500; }
-        .data-table tr:hover { background: rgba(52, 152, 219, 0.1); }
-
-        /* --- STYLE TOMBOL PEMICU TANGGAL (BARU) --- */
-        .btn-toggle-date {
-            position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%); /* Agar pas di tengah */
-
-            background: white; 
-            color: #333;
-            border: 1px solid #ccc;
-            padding: 10px 25px; 
-            border-radius: 50px; /* Bentuk kapsul */
-            font-weight: bold; 
-            font-size: 14px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
-            z-index: 1000; 
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .btn-toggle-date:hover {
-            background: #f8f9fa;
-            transform: translateX(-50%) scale(1.05);
-        }
-        
         /* POPUP & LEGEND STYLE */
         .custom-popup .leaflet-popup-content-wrapper { border-radius: 12px; padding: 0; overflow: hidden; }
         .custom-popup .leaflet-popup-content { margin: 0; width: 220px; }
@@ -293,35 +252,21 @@
         .unit { font-size: 14px; font-weight: normal; color: #95a5a6; }
         .popup-label { font-size: 12px; font-weight: 600; color: #7f8c8d; text-transform: uppercase; margin-bottom: 10px; display: block; }
         .tgl-popup { font-size: 11px; color: #95a5a6; margin-top: 10px; border-top: 1px dashed #eee; padding-top: 8px; display: block; }
-        
-        /* 1. LEGEND STANDARD (UNTUK HOME) */
-        .legend { 
-            line-height: 18px; color: #555; background: white; 
-            padding: 10px 15px; border-radius: 8px; 
-            box-shadow: 0 0 15px rgba(0,0,0,0.2); 
-            margin-bottom: 20px !important; 
+
+        /* LEGEND STANDARD (UNTUK HOME) */
+        .legend {
+            line-height: 18px; color: #555; background: white;
+            padding: 10px 15px; border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px !important;
+            --legend-scale: 0.6;
+            transform: scale(var(--legend-scale));
+            transform-origin: bottom right;
         }
+        #mapBox:fullscreen .legend, #mapBox:-webkit-full-screen .legend { --legend-scale: 1; }
         .legend h4 { margin: 0 0 10px; color: #333; font-size: 13px; font-weight: bold; text-align: center; }
         .legend-item { display: flex; align-items: center; margin-bottom: 5px; font-size: 12px; }
         .legend i { width: 13px; height: 13px; float: left; margin-right: 8px; opacity: 0.9; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
-
-        /* 2. LEGEND IMAGE BOX (UNTUK INTERACTIVE) */
-        .legend-table-style {
-            padding: 0 !important;
-            border-radius: 4px !important;
-            border: 2px solid #000 !important;
-            background: white;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
-            margin-bottom: 20px !important;
-            margin-left: 20px !important;
-            overflow: hidden;
-            line-height: 0;
-        }
-        #dynamic-legend img {
-            display: block;
-            width: 340px;   /* sesuaikan lebar gambar Anda */
-            height: auto;
-        }
 
         /* Style Tombol Hamburger (Default Sembunyi di Desktop) */
         .hamburger {
@@ -334,17 +279,13 @@
             padding: 8px;
             gap: 5px;
         }
-        
+
         .hamburger span {
             width: 25px;
             height: 3px;
             background-color: rgb(8, 163, 23); /* Warna garis */
             border-radius: 2px;
         }
-
-                
-
-        .placeholder-page { text-align: center; padding: 50px; color: #7f8c8d; }
 
         /* JAM MINI DI MOBILE (samping hamburger) */
         .mobile-clock {
@@ -361,7 +302,7 @@
         @media screen and (max-width: 768px) {
             .mobile-clock { display: flex; }
 
-            /*Penyesuaian NAVBAR*/
+            /* Penyesuaian NAVBAR */
             .navbar {
                 padding: 0 10px;
                 height: 60px;
@@ -381,84 +322,35 @@
                 text-overflow: ellipsis;
             }
 
-            /* Menu Navigasi jadi scroll samping */
-            .nav-menu {
-                flex: 1;
-                flex-direction: none;
-                display: none; 
-                overflow-x: auto; 
-                white-space: nowrap; 
-                margin-right: 0;
-                scrollbar-width: none;
-                width: 100%;
-                height: 25vh;
-                z-index: 4000;
-            }
-            .nav-menu::-webkit-scrollbar { display: none; } 
-            .nav-item { font-size: 12px; padding: 0 10px; }
-
-            /*Sembuntikan Jam di HP agar tidak sempit*/
-            .right-info { 
+            /* Sembunyikan Jam desktop di HP */
+            .right-info {
                 display: none;
             }
 
-            .clock-box {
-                display: flex;
-                flex-direction: column;
-                gap: 5px;
-                text-align: left;
-            }
-
-            /* Sembunyikan tanggal header lama jika double, atau sesuaikan stylingnya */
+            /* Sembunyikan tanggal header lama */
             #header-date { display: none; }
 
-            /* 2. PENYESUAIAN WIDGET HOME */
-            .weather-widget { 
-                width: 94%; 
+            /* PENYESUAIAN WIDGET HOME */
+            .weather-widget {
+                width: 94%;
                 top: 10px;
             }
             .weather-header { font-size: 12px; }
 
             .top10-container {
-                left: 50%; transform: translateX(-50%); 
-                bottom: 60px; 
-                width: 94%; 
+                left: 50%; transform: translateX(-50%);
+                bottom: 60px;
+                width: 94%;
                 max-height: 35vh;
             }
 
-            /* 3. PENYESUAIAN HALAMAN INTERAKTIF */
-            .controls {
-                width: 90%;
-                flex-direction: column;
-                max-width: 300px;
-                top: 50%;
-                transform: translate(-50%, -50%); 
-                padding: 10px;
-                border-radius: 15px;
-                gap: 8px;
-                z-index :10;
-            }
-            .controls label { font-size: 12px; }
-            .date-picker { width: 100%; box-sizing: border-box; }
-            .btn-load { width: 100%; padding: 8px 0; }
-
-            /*Tabel Overlay di HP*/
-            .btn-toggle-table { top: 140px; right: 10px; padding: 8px 12px; font-size: 12px; }
-            .table-overlay {
-                width: 94%;
-                right: 3%; 
-                top: 185px; 
-                max-height: 50vh;
-            }
-
-            /* 4. PENYESUAIAN LEGENDA & POPUP */
-            .legend, .legend-table-style {
-                max-width: 180px; 
+            /* PENYESUAIAN LEGENDA & POPUP */
+            .legend {
+                max-width: 180px;
                 font-size: 10px !important;
-                margin-bottom: 50px !important; 
+                margin-bottom: 50px !important;
                 margin-left: 10px !important;
             }
-            .legend-table-style table td { padding: 1px 3px !important; }
 
             /* Popup Leaflet agar tidak keluar layar */
             .leaflet-popup-content { width: 200px !important; }
@@ -503,7 +395,7 @@
             }
 
             /* Tampilkan menu saat tombol diklik (JS menambahkan class active) */
-            .nav-menu.active { display: flex !important; 
+            .nav-menu.active { display: flex !important;
             }
 
             /* Style Item Menu Mobile */
@@ -516,40 +408,9 @@
                 display: block;
                 color: #27ae60;
             }
-            body.menu-open .interactive-container {
-                pointer-events: none; /* Mencegah interaksi dengan elemen peta di bawah menu */
-                opacity: 0.5; /* Memberi efek visual bahwa area peta sedang tidak aktif */
-            }
-            .btn-toggle-table {
-                position: absolute;
-                top: auto !important;    /* Reset posisi atas */
-                bottom: 30px !important; /* Tempel ke bawah */
-                right: 10px !important;  /* Tempel ke kanan */
-                z-index: 700;
-            }
-
-            .btn-toggle-date {
-                position: absolute;
-                
-                top: 70px; /* Turunkan sedikit di HP agar tidak kena navbar */
-                font-size: 13px;
-                padding: 8px 20px;
-                z-index: 800;
-            }
-
-            .close-controls-desktop {
-                position: absolute;
-                top: 10px;
-                right: 15px;
-                margin-right: 0;
-                font-size: 24px;
-            }
 
             /* KODE UNTUK MENGHILANGKAN LEGENDA DI MOBILE */
-            #dynamic-legend, 
-            #interactivemaplegend, 
-            .legend, 
-            .legend-table-style {
+            .legend {
                 display: none !important;
             }
         }
@@ -585,11 +446,11 @@
             <span class="mc-date" id="mob-clock-date">-</span>
         </div>
 
-        <div class="nav-menu" id="navMenu" >
-            <div class="nav-item active" onclick="showSection('home', this)">Home</div>
-            <a   class="nav-item"        href="/visualisasi">Visualisasi</a>
-            <div class="nav-item"        onclick="showSection('interactive', this)">Peta Interaktif</div>
-            <a   class="nav-item"        href="/analisis">Analisis</a>
+        <div class="nav-menu" id="navMenu">
+            <a class="nav-item active" href="/">Home</a>
+            <a class="nav-item"        href="/peta-interaktif">Peta Interaktif</a>
+            <a class="nav-item"        href="/visualisasi">Visualisasi</a>
+            <a class="nav-item"        href="/analisis">Analisis</a>
         </div>
         <div class="right-info">
             <div class="clock-box">
@@ -606,89 +467,115 @@
         </div>
     </div>
 
-    <div id="section-home" class="section-view active">
-        <div class="weather-widget" id="weather-widget-container">
-            <div class="weather-header">
-                <span>☁️ Prakiraan Cuaca Hari Ini (Sumber: BMKG)</span>
-                <span style="font-size: 18px; cursor: pointer;" onclick="document.getElementById('weather-widget-container').style.display='none'">&times;</span>
-            </div>
-            <div class="weather-marquee"><div class="weather-track" id="bmkg-track"><div style="padding:0 20px;">Mengambil data...</div></div></div>
-        </div>
-        <button id="showTop10Btn" class="toggle-trigger-btn active" onclick="toggleTop10()">
-            📊 10 Besar Hujan
-        </button>
-        <div id="top10Container" class="top10-container">
-            <div class="top10-header">
-                <span>10 Besar Curah Hujan Harian Maksimum</span>
-                <button class="close-btn" onclick="toggleTop10()" title="Tutup Tabel">✖</button>
-            </div>
-            <div class="top10-scroll">
-                <table class="top10-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 35%">Kabupaten</th>
-                            <th>Kecamatan</th>
-                            <th style="text-align:center;">CH (mm)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="top10-body">
-                         <tr><td colspan="3" style="text-align:center;">Memuat Data...</td></tr>
-                    </tbody>
-                </table>
+    <div class="page-view">
+        <div class="home-tabs-bar">
+            <div class="mode-tabs">
+                <button class="mode-tab active" id="tab-peta-harian"    onclick="switchHomeTab('peta')">🗺️ Peta Harian</button>
+                <button class="mode-tab"        id="tab-analisis-peta" onclick="switchHomeTab('analisis')">📊 Analisis Peta Harian</button>
             </div>
         </div>
-        <div id="map"></div>
 
-    </div>
+        <div class="home-content-area">
 
-    
-
-    <div id="section-interactive" class="section-view">
-        <div class="interactive-container">
-            <button class="btn-toggle-date" id="btnShowDate" onclick="toggleDateBox()">
-                📅 Pilih Tanggal
-            </button>
-
-            <div class="controls" id="dateControlBox" style="display: none;">
-                <span class="close-controls-desktop" onclick="toggleDateBox()">&times;</span>
-                <label><strong>Pilih Tanggal:</strong></label>
-                <input type="date" id="date-picker" class="date-picker">
-                <button class="btn-load" onclick="loadInteractiveData(); toggleDateBox()">Tampilkan Data</button>
-                <span id="loading-text" style="color: #e67e22; display:none; font-weight:bold; font-size:12px;">⏳ Memuat...</span>
-            </div>
-
-            <button class="btn-toggle-table" onclick="toggleTable()"><span>Data Tabel</span></button>
-            <div class="table-overlay" id="interactive-table-box">
-                <div class="tbl-header">
-                    <span id="tbl-title">Rekapitulasi Bulan Ini</span>
-                    <span style="cursor:pointer; font-size:22px; font-weight:bold; line-height:1;" onclick="toggleTable()" title="Tutup">&#8594;</span>
-                </div>
-                <div class="tbl-content">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="text-align:left" onclick="sortTable('nama_pos')">Pos ⇅</th>
-                                <th onclick="sortTable('curah_hujan_harian')" style="color:#f1c40f;">CH Harian ⇅</th>
-                                <th onclick="sortTable('das1')">DAS1 ⇅</th>
-                                <th onclick="sortTable('das2')">DAS2 ⇅</th>
-                                <th onclick="sortTable('das3')">DAS3 ⇅</th>
-                                <th onclick="sortTable('total')">Total ⇅</th>
-                                <th onclick="sortTable('hh')">HH ⇅</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body-interactive">
-                            <tr><td colspan="7" style="text-align:center; padding:20px;">Silakan pilih tanggal & klik Tampilkan Data</td></tr>
-                        </tbody>
-                    </table>
+            <!-- ══════ TAB: PETA HARIAN ══════ -->
+            <div id="peta-harian-view" class="home-tab-view">
+                <div class="map-stage" id="mapStage">
+                    <div class="map-box" id="mapBox">
+                        <div class="map-box-controls">
+                            <button class="map-ctrl-btn" id="btnFullscreen" onclick="toggleMapFullscreen()" title="Layar Penuh">⛶</button>
+                            <button class="map-ctrl-btn" id="btnLocate" onclick="resetMapView()" title="Kembali ke Tampilan Awal">🎯</button>
+                        </div>
+                        <div class="weather-widget" id="weather-widget-container">
+                            <div class="weather-header">
+                                <span>☁️ Prakiraan Cuaca Hari Ini (Sumber: BMKG)</span>
+                                <span style="font-size: 18px; cursor: pointer;" onclick="document.getElementById('weather-widget-container').style.display='none'">&times;</span>
+                            </div>
+                            <div class="weather-marquee"><div class="weather-track" id="bmkg-track"><div style="padding:0 20px;">Mengambil data...</div></div></div>
+                        </div>
+                        <button id="showTop10Btn" class="toggle-trigger-btn active" onclick="toggleTop10()">
+                            📊 10 Besar Hujan
+                        </button>
+                        <div id="top10Container" class="top10-container">
+                            <div class="top10-header">
+                                <span>10 Besar Curah Hujan Harian Maksimum</span>
+                                <button class="close-btn" onclick="toggleTop10()" title="Tutup Tabel">✖</button>
+                            </div>
+                            <div class="top10-scroll">
+                                <table class="top10-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 35%">Kabupaten</th>
+                                            <th>Kecamatan</th>
+                                            <th style="text-align:center;">CH (mm)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="top10-body">
+                                         <tr><td colspan="3" style="text-align:center;">Memuat Data...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="map"></div>
+                    </div>
                 </div>
             </div>
-            
-            <div id="map-interactive"></div>
+
+            <!-- ══════ TAB: ANALISIS PETA HARIAN (dipindahkan dari menu Analisis) ══════ -->
+            <div id="analisis-peta-view" class="home-tab-view" style="display:none;">
+                <div class="peta-tab-wrap">
+                    <div class="peta-tab-card">
+                        <div class="peta-tab-hdr">🗺️ Peta Sebaran Curah Hujan Harian — Kalimantan Timur</div>
+                        <div class="peta-tab-img-area" id="petaImgArea" onclick="petaOpenLink()">
+                            <img id="petaImg" alt="Peta Sebaran CH Harian">
+                            <div class="peta-spinner" id="petaSpinner">
+                                <div class="spin"></div>
+                                Memuat peta terbaru…
+                            </div>
+                            <!-- Fallback: muncul jika CSV 404/error -->
+                            <div id="petaUrlForm" style="display:none;padding:28px 32px;width:100%;max-width:520px;text-align:left;">
+                                <div style="font-size:15px;font-weight:700;color:#2c3e50;margin-bottom:6px;">⚙️ Konfigurasi URL Sumber Peta</div>
+                                <div style="font-size:12.5px;color:#555;margin-bottom:14px;line-height:1.6;">
+                                    URL CSV Google Sheets tidak dapat diakses (mungkin URL berubah atau belum dipublikasi).<br>
+                                    Tempel URL CSV dari menu <strong>File → Bagikan → Publikasi ke web → pilih sheet yang berisi kolom <em>URL_Gambar</em> → Format CSV</strong>.<br>
+                                    <span style="color:#888;font-size:11.5px;">Kolom yang digunakan: <strong>A (Tanggal)</strong> dan <strong>I (URL_Gambar)</strong></span>
+                                </div>
+                                <div style="display:flex;gap:8px;align-items:stretch;">
+                                    <input id="petaCsvInput" type="text" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?gid=...&output=csv"
+                                        style="flex:1;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:12px;color:#333;"
+                                        onclick="event.stopPropagation()">
+                                    <button onclick="event.stopPropagation();retryWithUrl()"
+                                        style="background:#3498db;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                        Muat
+                                    </button>
+                                </div>
+                                <div style="margin-top:12px;font-size:11.5px;color:#888;">
+                                    💡 Atau tempel langsung URL gambar peta (JPG/PNG) jika tersedia:
+                                </div>
+                                <div style="display:flex;gap:8px;align-items:stretch;margin-top:6px;">
+                                    <input id="petaImgInput" type="text" placeholder="https://...gambar-peta.jpg"
+                                        style="flex:1;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:12px;color:#333;"
+                                        onclick="event.stopPropagation()">
+                                    <button onclick="event.stopPropagation();retryWithImgUrl()"
+                                        style="background:#27ae60;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                                        Tampilkan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="peta-tab-meta" id="petaDateBar">
+                            🕐 <span id="petaDate">-</span>
+                        </div>
+                        <div class="peta-tab-actions" id="petaActions">
+                            <a class="peta-tab-btn" id="petaLinkBtn" href="#" target="_blank">
+                                🔗 Link Gambar Analisis
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
-
-    <div id="section-visual" class="section-view"><div class="placeholder-page"><h2>📊</h2><p>Halaman Visualisasi Grafik (Coming Soon)</p></div></div>
-    <div id="section-analisis" class="section-view"><div class="placeholder-page"><h2>📈</h2><p>Halaman Analisis (Coming Soon)</p></div></div>
 
     <div class="footer">
         &copy; 2026 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda
@@ -696,7 +583,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // CLOCK
+        // ====================== CLOCK (dipakai bersama Peta Interaktif) ======================
         function updateClocks() {
             const now = new Date();
             const hUTC = String(now.getUTCHours()).padStart(2, '0');
@@ -717,53 +604,248 @@
         }
         setInterval(updateClocks, 1000); updateClocks();
 
-        // Handle URL hash on load (e.g. /#map from visualisasi page)
-        window.addEventListener('load', function() {
-            if (window.location.hash === '#map') {
-                document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
-                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-                document.getElementById('section-interactive').classList.add('active');
-                document.querySelectorAll('.nav-item').forEach(el => {
-                    if (el.innerText.trim() === 'Peta Interaktif') el.classList.add('active');
-                });
-                setTimeout(() => { mapInteractive.invalidateSize(); if(!document.getElementById('date-picker').value) document.getElementById('date-picker').valueAsDate = new Date(); }, 300);
-            }
-        });
+        // ====================== TAB HOME: PETA HARIAN <-> ANALISIS PETA HARIAN ======================
+        let petaAnalysisLoaded = false;
+        function switchHomeTab(tab) {
+            document.getElementById('tab-peta-harian').classList.toggle('active', tab === 'peta');
+            document.getElementById('tab-analisis-peta').classList.toggle('active', tab === 'analisis');
+            document.getElementById('peta-harian-view').style.display    = (tab === 'peta') ? 'block' : 'none';
+            document.getElementById('analisis-peta-view').style.display  = (tab === 'analisis') ? 'flex' : 'none';
 
-        // Handle URL param ?s=interactive on page load
-        (function() {
-            const params = new URLSearchParams(window.location.search);
-            const s = params.get('s');
-            if (s === 'interactive') {
-                document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
-                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-                document.getElementById('section-interactive').classList.add('active');
-                const navItems = document.querySelectorAll('.nav-item');
-                navItems.forEach(el => { if (el.textContent.trim() === 'Peta Interaktif') el.classList.add('active'); });
-                setTimeout(() => { mapInteractive.invalidateSize(); if(!document.getElementById('date-picker').value) document.getElementById('date-picker').valueAsDate = new Date(); }, 300);
+            if (tab === 'analisis' && !petaAnalysisLoaded) {
+                petaAnalysisLoaded = true;
+                initPetaConfig().then(() => loadPetaTerbaru());
             }
-        })();
-
-        function showSection(sectionId, element) {
-            document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            document.getElementById('section-' + sectionId).classList.add('active');
-            element.classList.add('active');
-            // Tutup menu mobile setelah memilih
-            const menu = document.getElementById('navMenu');
-            menu.classList.remove('active');
-            menu.style.display = '';
-            if(sectionId === 'home') setTimeout(() => { mapHome.invalidateSize(); }, 200);
-            if(sectionId === 'interactive') setTimeout(() => { mapInteractive.invalidateSize(); if(!document.getElementById('date-picker').value) document.getElementById('date-picker').valueAsDate = new Date(); }, 200);
+            if (tab === 'peta' && typeof mapHome !== 'undefined') {
+                setTimeout(() => mapHome.invalidateSize(), 100);
+            }
         }
 
-        // --- FUNGSI FORMAT ANGKA (BARU: TAMPIL SEADANYA, SUPPORT KOMA) ---
+        // ====================== PETA HARIAN: WINDOW VIEW <-> FULL VIEW ======================
+        function toggleMapFullscreen() {
+            const box = document.getElementById('mapBox');
+            const isFull = document.fullscreenElement || document.webkitFullscreenElement;
+            if (!isFull) {
+                if (box.requestFullscreen) box.requestFullscreen();
+                else if (box.webkitRequestFullscreen) box.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        }
+
+        function onMapFullscreenChange() {
+            const box = document.getElementById('mapBox');
+            const btn = document.getElementById('btnFullscreen');
+            const active = (document.fullscreenElement || document.webkitFullscreenElement) === box;
+            btn.textContent = active ? '✕' : '⛶';
+            btn.title = active ? 'Kembali ke Tampilan Jendela' : 'Layar Penuh';
+            setTimeout(() => { if (typeof mapHome !== 'undefined') mapHome.invalidateSize(); }, 200);
+        }
+        document.addEventListener('fullscreenchange', onMapFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', onMapFullscreenChange);
+
+        function resetMapView() {
+            if (typeof mapHome !== 'undefined') mapHome.setView([-0.5, 116.5], 7);
+        }
+
+        // ====================== ANALISIS PETA HARIAN (dipindahkan dari menu Analisis) ======================
+        // URL CSV tidak disimpan di sini — diambil dari backend (/api/config/peta-csv-url)
+        // agar tidak terekspos di source HTML dan aman di-push ke GitHub.
+        let PETA_CSV_URL = '';
+        let petaCurrentUrl = '#';
+
+        async function initPetaConfig() {
+            try {
+                const res = await fetch('/api/config/peta-csv-url');
+                const d   = await res.json();
+                if (d.url) PETA_CSV_URL = d.url;
+            } catch (_) {
+                // Jika gagal fetch config, biarkan kosong → form konfigurasi akan tampil
+            }
+        }
+
+        function parseCsvLine(line) {
+            const out = []; let cur = '', inQ = false;
+            for (const ch of line) {
+                if (ch === '"') { inQ = !inQ; }
+                else if (ch === ',' && !inQ) { out.push(cur.trim()); cur = ''; }
+                else cur += ch;
+            }
+            out.push(cur.trim());
+            return out.map(s => s.replace(/^"|"$/g, '').trim());
+        }
+
+        async function loadPetaTerbaru(csvUrl) {
+            const url     = csvUrl || PETA_CSV_URL;
+            const spinner = document.getElementById('petaSpinner');
+            const urlForm = document.getElementById('petaUrlForm');
+            const img     = document.getElementById('petaImg');
+            const dateBar = document.getElementById('petaDateBar');
+            const dateEl  = document.getElementById('petaDate');
+            const btn     = document.getElementById('petaLinkBtn');
+            const actions = document.getElementById('petaActions');
+
+            // Jika URL belum dikonfigurasi, langsung tampilkan form
+            if (!url) {
+                spinner.style.display = 'none';
+                urlForm.style.display = 'block';
+                return;
+            }
+
+            // Reset state
+            spinner.style.display = 'flex'; spinner.innerHTML = '<div class="spin"></div><span>Memuat peta terbaru…</span>';
+            urlForm.style.display = 'none';
+            img.classList.remove('loaded'); img.src = ''; img.style.display = 'none';
+            dateBar.style.display = 'none'; actions.style.display = 'none';
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const text = await res.text();
+
+                // Pastikan hasil adalah CSV (bukan HTML error page)
+                if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html'))
+                    throw new Error('Bukan CSV — pastikan format publikasi adalah CSV');
+
+                const rows = text.trim().split('\n').slice(1).filter(l => l.trim());
+                if (!rows.length) throw new Error('Data CSV kosong');
+
+                // Cari mundur dari baris terakhir → ambil baris pertama yang punya URL valid
+                let rawDate = '', urlPeta = '';
+                for (let i = rows.length - 1; i >= 0; i--) {
+                    const p = parseCsvLine(rows[i]);
+                    const d = p[0] || '';
+                    // Kolom B (index 1) = url_peta
+                    let u = p[1] || '';
+                    // Jika URL tidak dimulai dengan http, coba prefix AppSheet base
+                    if (u && !u.startsWith('http')) {
+                        // Hapus '=' di awal jika ada (artefak formula Sheets)
+                        u = u.replace(/^=/, '');
+                        if (u.startsWith('Peta&') || u.startsWith('tableName=')) {
+                            u = 'https://www.appsheet.com/Template/gettablefileurl?appname=AnalisisCHHarianKaltim-211683618&tableName=' + u;
+                        }
+                    }
+                    if (u && u.startsWith('http')) {
+                        rawDate = d;
+                        urlPeta = u;
+                        break;
+                    }
+                }
+                if (!urlPeta) throw new Error('Tidak ada URL valid di kolom url_peta — cek isi spreadsheet');
+
+                // Simpan URL aktif agar tombol & klik gambar berfungsi
+                petaCurrentUrl = urlPeta;
+                btn.href = urlPeta;
+
+                // Format tanggal
+                let fmtDate = rawDate;
+                try {
+                    const d = new Date(rawDate);
+                    if (!isNaN(d)) fmtDate = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                } catch (_) {}
+                dateEl.textContent = 'Peta terbaru: ' + fmtDate;
+
+                // Coba embed gambar
+                applyPetaImage(urlPeta);
+
+            } catch (e) {
+                spinner.style.display = 'none';
+                urlForm.style.display = 'block';
+                // Tampilkan error kecil di atas form
+                urlForm.querySelector('div').insertAdjacentHTML('afterbegin',
+                    `<div style="background:#fdecea;border-radius:6px;padding:8px 12px;font-size:12px;color:#c0392b;margin-bottom:12px;">
+                        ⚠️ ${e.message}
+                     </div>`
+                );
+            }
+        }
+
+        function applyPetaImage(urlPeta) {
+            const spinner = document.getElementById('petaSpinner');
+            const img     = document.getElementById('petaImg');
+            const dateBar = document.getElementById('petaDateBar');
+            const actions = document.getElementById('petaActions');
+            const btn     = document.getElementById('petaLinkBtn');
+
+            petaCurrentUrl = urlPeta;
+            btn.href = urlPeta;
+
+            img.onload = () => {
+                spinner.style.display = 'none';
+                img.style.display = 'block'; img.classList.add('loaded');
+                dateBar.style.display = 'flex'; actions.style.display = 'flex';
+            };
+            img.onerror = () => {
+                // Tidak bisa embed — tampilkan fallback dengan tombol terbuka
+                img.style.display = 'none';
+                spinner.innerHTML =
+                    '<div style="font-size:64px;line-height:1;margin-bottom:14px;">🗺️</div>' +
+                    '<div style="font-size:15px;font-weight:700;color:#2c3e50;margin-bottom:6px;">Peta Siap Dibuka</div>' +
+                    '<div style="font-size:12.5px;color:#666;max-width:360px;line-height:1.6;">' +
+                    'Gambar tidak dapat ditampilkan langsung (perlu sesi AppSheet).<br>' +
+                    'Gunakan tombol di bawah untuk membuka peta.</div>';
+                dateBar.style.display = 'flex'; actions.style.display = 'flex';
+            };
+            img.src = urlPeta;
+        }
+
+        // Retry jika user paste URL CSV baru
+        function retryWithUrl() {
+            const input = document.getElementById('petaCsvInput').value.trim();
+            if (!input) { alert('Tempel URL CSV terlebih dahulu.'); return; }
+            // Hapus error lama
+            const errEl = document.querySelector('#petaUrlForm div div[style*="fdecea"]');
+            if (errEl) errEl.remove();
+            PETA_CSV_URL = input;
+            loadPetaTerbaru(input);
+        }
+
+        // Langsung pakai URL gambar (bypass CSV)
+        function retryWithImgUrl() {
+            const input = document.getElementById('petaImgInput').value.trim();
+            if (!input) { alert('Tempel URL gambar terlebih dahulu.'); return; }
+            document.getElementById('petaUrlForm').style.display = 'none';
+            document.getElementById('petaSpinner').style.display = 'flex';
+            applyPetaImage(input);
+        }
+
+        function petaOpenLink() {
+            if (petaCurrentUrl && petaCurrentUrl !== '#') window.open(petaCurrentUrl, '_blank');
+        }
+
+        // ====================== MENU MOBILE (dipakai bersama Peta Interaktif) ======================
+        function toggleMenu() {
+            var menu = document.getElementById("navMenu");
+            menu.classList.toggle("active");
+            if (menu.style.display === "flex") {
+                menu.style.display = "";
+                menu.classList.remove("active");
+            } else {
+                menu.style.display = "flex";
+                menu.classList.add("active");
+            }
+        }
+
+        function toggleTop10() {
+            var container = document.getElementById("top10Container");
+            var btn = document.getElementById("showTop10Btn");
+            if (container.classList.contains("hidden")) {
+                container.classList.remove("hidden");
+                btn.classList.add("active");
+            } else {
+                container.classList.add("hidden");
+                btn.classList.remove("active");
+            }
+        }
+
+        // ====================== FUNGSI FORMAT ANGKA (dipakai bersama Peta Interaktif) ======================
         function formatAngka(num) {
             if (num === null || num === undefined || num === '') return '0';
             return parseFloat(num).toLocaleString('id-ID', { maximumFractionDigits: 2 });
         }
 
-        // --- FUNGSI POPUP DENGAN DATA TOTAL ---
+        // ====================== FUNGSI POPUP DENGAN DATA TOTAL (dipakai bersama Peta Interaktif) ======================
         function getPopupContent(nama, nilai, color, labelKategori, tanggalStr, totalBulanan, categoryBadge) {
             var obsDate = new Date(tanggalStr);
             var strDataDate = tanggalStr;
@@ -775,7 +857,6 @@
                 strDataDate = obsDate.toLocaleDateString('id-ID', options);
             }
 
-            // LOGIKA HTML TOTAL BULANAN
             let totalHtml = '';
             if (totalBulanan !== undefined && totalBulanan !== null) {
                 let val = formatAngka(totalBulanan);
@@ -794,8 +875,8 @@
                         <div class="rain-value" style="color:${color}">${valHarian} <span class="unit">${unit}</span></div>
                         ${categoryBadge ? categoryBadge : ''}
                         <span class="popup-label">${labelKategori}</span>
-                        
-                        ${totalHtml} 
+
+                        ${totalHtml}
 
                         <div style="margin-top:5px; border-top:1px dashed #eee; padding-top:8px; line-height:1.4;">
                             <span style="font-size:12px; color:#555;font-weight:bold;">Tanggal Data: ${strDataDate}</span><br>
@@ -803,84 +884,30 @@
                         </div>
                     </div>`;
         }
-        
+
+        // ====================== FUNGSI WARNA (dipakai bersama Peta Interaktif) ======================
         function getColorDaily(d) {
             return d > 150 ? '#800080' : d > 100 ? '#FF0000' : d > 50 ? '#FFA500' : d > 20 ? '#FFD700' : d >= 1 ? '#32CD32' : '#D9DDDC';
         }
-        
-        function getColorDAS(d) {
-            return d > 300 ? '#1E4E1E' : 
-                   d > 200 ? '#408040' : 
-                   d > 150 ? '#99D5A0' : 
-                   d > 100 ? '#DDEECC' : 
-                   d > 75 ? '#E9E962' : 
-                   d > 50 ? '#D6AA00' : 
-                   d > 20  ? '#C86400' : 
-                   d > 10  ? '#783A14' : 
-                             '#40210A';
-        }
 
-        function getColorAccum(d) {
-            return d > 500 ? '#1E4E1E' : 
-                   d > 400 ? '#408040' : 
-                   d > 300 ? '#99D5A0' : 
-                   d > 200 ? '#DDEECC' : 
-                   d > 150 ? '#E9E962' : 
-                   d > 100 ? '#D6AA00' : 
-                   d > 50  ? '#C86400' : 
-                   d > 20  ? '#783A14' : 
-                             '#40210A';
-        }
-
-        function getColorHH(d) {
-            return d > 20 ? '#66FF00' : 
-                   d > 10 ? '#FFFF00' : 
-                   d > 1  ? '#FFA500' : 
-                            '#D9DDDC';
-        }
-
-        // ── FUNGSI KATEGORI CURAH HUJAN ──────────────────────────────────────
-        function getCategoryDaily(v) {
-            if (v < 1)   return null;                                   // tidak hujan
-            if (v <= 5)  return { label: 'Sangat Ringan', color: '#27ae60' };
-            if (v <= 20) return { label: 'Ringan',        color: '#27ae60' };
-            if (v <= 50) return { label: 'Sedang',        color: '#f1c40f' };
-            if (v <= 100)return { label: 'Lebat',         color: '#e67e22' };
-            if (v <= 150)return { label: 'Sangat Lebat',  color: '#e74c3c' };
-            return             { label: 'Ekstrim',        color: '#8e44ad' };
-        }
-
-        function getCategoryAccum(v) {
-            if (v <= 20)  return { label: 'Sangat Rendah', color: '#40210A' };
-            if (v <= 50)  return { label: 'Rendah',        color: '#783A14' };
-            if (v <= 100) return { label: 'Rendah',        color: '#C86400' };
-            if (v <= 150) return { label: 'Menengah',      color: '#D6AA00' };
-            if (v <= 200) return { label: 'Menengah',      color: '#E9E962' };
-            if (v <= 300) return { label: 'Menengah',      color: '#DDEECC' };
-            if (v <= 400) return { label: 'Tinggi',        color: '#99D5A0' };
-            if (v <= 500) return { label: 'Tinggi',        color: '#408040' };
-            return              { label: 'Sangat Tinggi',  color: '#1E4E1E' };
-        }
-        // ─────────────────────────────────────────────────────────────────────
-
-        // --- FUNGSI GLOBAL MARKER EVENT ---
+        // --- FUNGSI GLOBAL MARKER EVENT (dipakai bersama Peta Interaktif) ---
         function attachMarkerEvents(marker) {
-            marker.isLocked = false; 
+            marker.isLocked = false;
             marker.on('mouseover', function(e) { if (!this.isLocked) { this.openPopup(); } });
             marker.on('mouseout', function(e) { if (!this.isLocked) { this.closePopup(); } });
             marker.on('click', function(e) { this.isLocked = true; this.openPopup(); });
             marker.on('popupclose', function(e) { this.isLocked = false; });
         }
 
-        // MAP HOME
+        // ====================== MAP HOME ======================
         var mapHome = L.map('map', {zoomControl: false}).setView([-0.5, 116.5], 7);
         L.control.zoom({ position: 'topleft' }).addTo(mapHome);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '© OpenStreetMap & CartoDB'}).addTo(mapHome);
-        
+
         var legendHome = L.control({position: 'bottomright'});
         legendHome.onAdd = function (map) {
             var div = L.DomUtil.create('div', 'legend');
-            div.innerHTML = '<strong>Hujan Harian</strong><br><div style="font-size:11px;font-weight:bold;color:#27ae60;margin-bottom:8px;line-height:1.2;border-bottom:1px solid #eee;padding-bottom:5px;">Data CH merupakan akumulasi curah hujan saat<br>pukul 07.00 kemarin sampai 07.00 hari ini</div>' + 
+            div.innerHTML = '<strong>Hujan Harian</strong><br><div style="font-size:11px;font-weight:bold;color:#27ae60;margin-bottom:8px;line-height:1.2;border-bottom:1px solid #eee;padding-bottom:5px;">Data CH merupakan akumulasi curah hujan saat<br>pukul 07.00 kemarin sampai 07.00 hari ini</div>' +
             '<div class="legend-item"><i style="background:#D7DDDC; width:13px; height:13px; border-radius:50%;"></i> 0 - 0.9 mm</div>' +
             '<div class="legend-item"><i style="background:#32CD32; width:13px; height:13px; border-radius:50%;"></i> 1 - 20 mm</div>' +
             '<div class="legend-item"><i style="background:#FFD700; width:13px; height:13px; border-radius:50%;"></i> 20 - 50 mm</div>' +
@@ -904,10 +931,10 @@
                 if(pos.lintang && pos.bujur) {
                     let totalVal = null;
                     if(data.monthly) {
-                        const matchedRow = data.monthly.find(row => 
+                        const matchedRow = data.monthly.find(row =>
                             row.nama_pos.toLowerCase() === pos.nama_pos.toLowerCase()
                         );
-                        if(matchedRow) totalVal = matchedRow.total_bulanan; 
+                        if(matchedRow) totalVal = matchedRow.total_bulanan;
                     }
 
                     let color = getColorDaily(pos.curah_hujan);
@@ -933,7 +960,7 @@
                         marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 8, weight: 1 });
                     }
                     marker.bindPopup(popupHtml, {className: 'custom-popup'});
-                    attachMarkerEvents(marker); 
+                    attachMarkerEvents(marker);
                     marker.addTo(mapHome);
                 }
             });
@@ -956,393 +983,6 @@
             const createCards = (items) => { let html = ''; items.forEach(item => { html += `<div class="weather-card"><div class="wc-city">${item.kota}</div><img src="${item.icon}" class="wc-icon"><div class="wc-temp">${item.suhu}°C</div><div class="wc-desc">${item.cuaca}</div></div>`; }); return html; };
             const content = createCards(data); track.innerHTML = content + content;
         }).catch(err => document.getElementById('bmkg-track').innerHTML = '<div style="padding:15px">Gagal koneksi ke BMKG</div>');
-
-        // MAP INTERACTIVE
-        var mapInteractive = L.map('map-interactive', {zoomControl: false}).setView([-0.5, 116.5], 7);
-        L.control.zoom({ position: 'topleft' }).addTo(mapInteractive);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '© OpenStreetMap & CartoDB'}).addTo(mapInteractive);
-        
-        // Semua layer TIDAK ditambah ke peta dulu — radio-select kustom yang mengontrol
-        var dailyLayer = L.layerGroup();
-        var accumLayer = L.layerGroup();
-        var das1Layer  = L.layerGroup();
-        var das2Layer  = L.layerGroup();
-        var das3Layer  = L.layerGroup();
-        var hhLayer    = L.layerGroup();
-        var idwLayer   = L.layerGroup();
-
-        const allLayers = {
-            "Hujan Harian"         : dailyLayer,
-            "Akumulasi Bulanan"    : accumLayer,
-            "DAS 1 (Tgl 1-10)"    : das1Layer,
-            "DAS 2 (Tgl 11-20)"   : das2Layer,
-            "DAS 3 (Tgl 21-Akhir)": das3Layer,
-            "Hari Hujan (HH)"     : hhLayer,
-            "Peta Sebaran Hujan"  : idwLayer
-        };
-        const layerNames  = Object.keys(allLayers);
-        const layerValues = Object.values(allLayers);
-        var activeLayerName = null;
-
-        function getLegendType(name) {
-            if (name === "Hujan Harian")        return 'daily';
-            if (name === "Akumulasi Bulanan")    return 'accum';
-            if (name === "DAS 1 (Tgl 1-10)")    return 'das1';
-            if (name === "DAS 2 (Tgl 11-20)")   return 'das2';
-            if (name.includes("DAS 3"))          return 'das3';
-            if (name.includes("Hari Hujan"))     return 'hh';
-            if (name === "Peta Sebaran Hujan")  return 'daily';
-            return 'daily';
-        }
-
-        // Buat layer control — semua unchecked karena tidak ada yang di peta
-        L.control.layers(null, allLayers, {collapsed: false, position: 'topleft'}).addTo(mapInteractive);
-
-        // ── RADIO-SELECT: clone semua checkbox untuk hapus listener Leaflet, lalu pasang handler kustom ──
-        setTimeout(function () {
-            var overlayDiv = document.querySelector('.leaflet-control-layers-overlays');
-            if (!overlayDiv) return;
-            var rawInputs = overlayDiv.querySelectorAll('input[type="checkbox"]');
-
-            rawInputs.forEach(function (input, idx) {
-                var clone = input.cloneNode(true);
-                clone.checked = false;
-                input.parentNode.replaceChild(clone, input);
-            });
-
-            // Handler terpasang ke parent agar tetap valid setelah replace
-            overlayDiv.addEventListener('change', function (e) {
-                if (e.target.type !== 'checkbox') return;
-                var inputs = Array.from(overlayDiv.querySelectorAll('input[type="checkbox"]'));
-                var clickedIdx = inputs.indexOf(e.target);
-                if (clickedIdx === -1) return;
-
-                if (e.target.checked) {
-                    // Uncheck & remove semua layer lain
-                    inputs.forEach(function (inp, i) {
-                        if (i !== clickedIdx) {
-                            inp.checked = false;
-                            mapInteractive.removeLayer(layerValues[i]);
-                        }
-                    });
-                    // Tambahkan layer yang dipilih
-                    mapInteractive.addLayer(layerValues[clickedIdx]);
-                    activeLayerName = layerNames[clickedIdx];
-                    updateLegend(getLegendType(activeLayerName));
-                } else {
-                    // User uncheck layer aktif — hapus dari peta
-                    mapInteractive.removeLayer(layerValues[clickedIdx]);
-                    activeLayerName = null;
-                }
-            });
-        }, 300);
-        
-        // --- LEGENDA INTERAKTIF DINAMIS ---
-        var legendInteractive = L.control({position: 'bottomleft'});
-
-        legendInteractive.onAdd = function (map) {
-            var div = L.DomUtil.create('div', 'legend-table-style');
-            div.id = 'dynamic-legend';
-            // Kotak gambar — src akan diisi oleh updateLegend()
-            div.innerHTML = '<img id="legend-img" src="" alt="Legenda" />';
-            return div;
-        };
-        legendInteractive.addTo(mapInteractive);
-
-        // ─── PETA GAMBAR LEGENDA (sesuaikan nama file di folder static/legends/) ───
-        const LEGEND_IMAGES = {
-            'daily' : '/static/legends/legend_daily.png',
-            'accum' : '/static/legends/legend_accum.png',
-            'das1'  : '/static/legends/legend_das1.png',
-            'das2'  : '/static/legends/legend_das2.png',
-            'das3'  : '/static/legends/legend_das3.png',
-            'hh'    : '/static/legends/legend_hh.png',
-            'idw'   : '/static/legends/legend_daily.png'
-        };
-
-        // FUNGSI UPDATE GAMBAR LEGENDA
-        function updateLegend(type) {
-            const img = document.getElementById('legend-img');
-            if (!img) return;
-            img.src = LEGEND_IMAGES[type] || LEGEND_IMAGES['daily'];
-        }
-
-        // SET LEGENDA AWAL (HARIAN)
-        updateLegend('daily');
-
-        // (blok legenda lama sudah dihapus — digantikan gambar di atas)
-
-        function toggleTable() {
-            document.getElementById('interactive-table-box').classList.toggle('hidden');
-        }
-
-        let globalTableData = [];
-        let globalDailyData = [];
-        let sortDirection = {};
-
-        function renderTable(data, dailyData) {
-            const tbody = document.getElementById('table-body-interactive');
-            tbody.innerHTML = '';
-            if (data && data.length > 0) {
-                data.forEach(row => {
-                    const f = (n) => formatAngka(n);
-                    // Cari nilai CH harian untuk pos ini
-                    let chHarian = '-';
-                    if (dailyData) {
-                        const match = dailyData.find(d => d.nama_pos && d.nama_pos.toLowerCase() === (row.nama_pos||'').toLowerCase());
-                        if (match) chHarian = f(match.curah_hujan);
-                    }
-                    const tr = `<tr>
-                            <td>${row.nama_pos}</td>
-                            <td style="color:#f1c40f;font-weight:bold;">${chHarian}</td>
-                            <td>${f(row.das1)}</td>
-                            <td>${f(row.das2)}</td>
-                            <td>${f(row.das3)}</td>
-                            <td style="font-weight:bold; color:#fff;">${f(row.total)}</td>
-                            <td>${row.hh}</td>
-                        </tr>`;
-                    tbody.innerHTML += tr;
-                });
-                document.getElementById('interactive-table-box').classList.remove('hidden');
-            } else {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">Data tidak ditemukan.</td></tr>';
-            }
-        }
-
-        function sortTable(key) {
-            if (globalTableData.length === 0) return;
-            if (!sortDirection[key] || sortDirection[key] === 'asc') { sortDirection[key] = 'desc'; } else { sortDirection[key] = 'asc'; }
-            globalTableData.sort((a, b) => {
-                let valA = a[key]; let valB = b[key];
-                if (typeof valA === 'string') valA = valA.toLowerCase();
-                if (typeof valB === 'string') valB = valB.toLowerCase();
-                if (sortDirection[key] === 'asc') { return valA > valB ? 1 : -1; } else { return valA < valB ? 1 : -1; }
-            });
-            renderTable(globalTableData, globalDailyData);
-        }
-
-        function loadInteractiveData() {
-            var dateVal = document.getElementById('date-picker').value;
-            if(!dateVal) { alert("Pilih tanggal dulu!"); return; }
-            var selected = new Date(dateVal); selected.setHours(0,0,0,0);
-            var today = new Date(); today.setHours(0,0,0,0);
-            if (selected.getTime() > today.getTime()) { alert("⚠️ Data belum tersedia untuk tanggal masa depan."); return; }
-            if (selected.getTime() === today.getTime()) { alert("⚠️ Curah hujan hari ini akan terakumulasi besok pagi."); }
-            
-            document.getElementById('loading-text').style.display = 'inline';
-            
-            dailyLayer.clearLayers(); 
-            accumLayer.clearLayers();
-            das1Layer.clearLayers();
-            das2Layer.clearLayers();
-            das3Layer.clearLayers();
-            hhLayer.clearLayers();
-            idwLayer.clearLayers();
-
-            globalTableData = []; sortDirection = {};
-            // Judul: "Rekapitulasi {Bulan} {Tahun}  Update: {tgl dipilih}"
-            const tglAngka  = selected.getDate();
-            const namaBulan = selected.toLocaleDateString('id-ID', { month: 'long' });
-            const tahun     = selected.getFullYear();
-            document.getElementById('tbl-title').innerHTML =
-                `Rekapitulasi ${namaBulan} ${tahun} ` +
-                `<span style="font-weight:400; font-size:0.6em; opacity:0.8;">Update: ${tglAngka} ${namaBulan} ${tahun}</span>`;
-
-            fetch(`/api/interactive-data?date=${dateVal}`).then(res => res.json()).then(data => {
-                document.getElementById('loading-text').style.display = 'none';
-                if(data.warning) alert(data.warning); else if(data.error) alert(data.error);
-                
-                // 1. RENDER MAP - DAILY (INTERACTIVE)
-                data.daily.forEach(pos => {
-                    if(pos.lintang && pos.bujur) {
-                        let totalVal = null;
-                        let hhVal = null;
-                        if(data.table_data) {
-                            // Match dengan nama_pos
-                            const matchedRow = data.table_data.find(row => 
-                                row.nama_pos.toLowerCase() === pos.nama_pos.toLowerCase()
-                            );
-                            if(matchedRow) {
-                                totalVal = matchedRow.total;
-                                hhVal = matchedRow.hh;
-                            }
-                        }
-
-                        // Layer Daily
-                        let color = getColorDaily(pos.curah_hujan);
-                        let catDaily = getCategoryDaily(pos.curah_hujan);
-                        let catBadgeDaily = catDaily
-                            ? `<div style="display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:20px;background:${catDaily.color};color:#fff;font-size:11px;font-weight:700;">${catDaily.label}</div>`
-                            : '';
-                        let popupHtml = getPopupContent(pos.nama_pos, pos.curah_hujan, color, "Curah Hujan", dateVal, totalVal, catBadgeDaily);
-                        let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 8, weight: 1 });
-                        marker.bindPopup(popupHtml, {className: 'custom-popup'});
-                        attachMarkerEvents(marker); 
-                        marker.addTo(dailyLayer);
-
-                        // Layer HH
-                        if (hhVal !== null) {
-                            let colorHH = getColorHH(hhVal);
-                            let popupHH = getPopupContent(pos.nama_pos, hhVal, colorHH, "Hari Hujan", `s.d. ${dateVal}`, totalVal);
-                            let markerHH = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: colorHH, fillOpacity: 0.9, radius: 9, weight: 1 });
-                            markerHH.bindPopup(popupHH, {className: 'custom-popup'});
-                            attachMarkerEvents(markerHH); 
-                            markerHH.addTo(hhLayer);
-                        }
-                    }
-                });
-
-                // 2. RENDER MAP - ACCUMULATION (INTERACTIVE)
-                data.accumulation.forEach(pos => {
-                    if(pos.lintang && pos.bujur) {
-                        let color = getColorAccum(pos.total_akumulasi);
-                        let catAccum = getCategoryAccum(pos.total_akumulasi);
-                        let catBadgeAccum = `<div style="display:inline-block;margin-bottom:6px;padding:2px 10px;border-radius:20px;background:${catAccum.color};color:#fff;font-size:11px;font-weight:700;border:1px solid rgba(0,0,0,0.2);">${catAccum.label}</div>`;
-                        let popupHtml = getPopupContent(pos.nama_pos, pos.total_akumulasi, color, "Total Akumulasi", `s.d. ${dateVal}`, null, catBadgeAccum);
-                        let marker = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color, fillOpacity: 0.9, radius: 10, weight: 1 });
-                        marker.bindPopup(popupHtml, {className: 'custom-popup'});
-                        attachMarkerEvents(marker); 
-                        marker.addTo(accumLayer);
-                    }
-                });
-
-                // 3. RENDER MAP - DASARIAN (DAS1, DAS2, DAS3)
-                if (data.das_map) {
-                    data.das_map.forEach(pos => {
-                        if(pos.lintang && pos.bujur) {
-
-                            // Helper: buat baris titik DAS lain (horizontal)
-                            function getDasDots(activeLabel, v1, v2, v3) {
-                                // activeLabel: 'das1'|'das2'|'das3'
-                                // Warna sesuai nilai, merah = active, biru = lainnya
-                                const dots = [
-                                    { key: 'das1', val: v1, label: 'DAS1' },
-                                    { key: 'das2', val: v2, label: 'DAS2' },
-                                    { key: 'das3', val: v3, label: 'DAS3' },
-                                ];
-                                return `<div style="display:flex;justify-content:center;gap:12px;margin-top:8px;padding-top:8px;border-top:1px dashed #eee;">` +
-                                    dots.filter(d => d.key !== activeLabel).map(d => {
-                                        const dotColor = d.key === activeLabel ? '#FF0000' : '#3498db';
-                                        return `<div style="text-align:center;">
-                                            <div style="width:12px;height:12px;border-radius:50%;background:${dotColor};margin:0 auto 2px;border:1.5px solid #fff;box-shadow:0 0 3px rgba(0,0,0,0.3);"></div>
-                                            <span style="font-size:10px;color:#555;font-weight:600;">${d.label}</span><br>
-                                            <span style="font-size:11px;color:#333;font-weight:700;">${formatAngka(d.val)}<span style="font-size:9px;color:#999;">mm</span></span>
-                                        </div>`;
-                                    }).join('') +
-                                `</div>`;
-                            }
-
-                            // --- DAS 1 (titik merah=DAS1, titik biru=DAS2 & DAS3) ---
-                            let color1 = getColorDAS(pos.das1_val);
-                            let popup1 = `<div class="popup-header">${pos.nama_pos}</div>
-                                <div class="popup-body">
-                                    <div class="rain-value" style="color:${color1}">${formatAngka(pos.das1_val)} <span class="unit">mm</span></div>
-                                    <span class="popup-label">Total DAS 1</span>
-                                    ${getDasDots('das1', pos.das1_val, pos.das2_val, pos.das3_val)}
-                                    <div style="margin-top:8px;font-size:10px;color:#999;font-style:italic;">s.d. ${dateVal}</div>
-                                </div>`;
-                            let marker1 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color1, fillOpacity: 0.9, radius: 9, weight: 1 });
-                            marker1.bindPopup(popup1, {className: 'custom-popup'});
-                            attachMarkerEvents(marker1);
-                            marker1.addTo(das1Layer);
-
-                            // --- DAS 2 (titik merah=DAS2) ---
-                            let color2 = getColorDAS(pos.das2_val);
-                            let popup2 = `<div class="popup-header">${pos.nama_pos}</div>
-                                <div class="popup-body">
-                                    <div class="rain-value" style="color:${color2}">${formatAngka(pos.das2_val)} <span class="unit">mm</span></div>
-                                    <span class="popup-label">Total DAS 2</span>
-                                    ${getDasDots('das2', pos.das1_val, pos.das2_val, pos.das3_val)}
-                                    <div style="margin-top:8px;font-size:10px;color:#999;font-style:italic;">s.d. ${dateVal}</div>
-                                </div>`;
-                            let marker2 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color2, fillOpacity: 0.9, radius: 9, weight: 1 });
-                            marker2.bindPopup(popup2, {className: 'custom-popup'});
-                            attachMarkerEvents(marker2);
-                            marker2.addTo(das2Layer);
-
-                            // --- DAS 3 (titik merah=DAS3) ---
-                            let color3 = getColorDAS(pos.das3_val);
-                            let popup3 = `<div class="popup-header">${pos.nama_pos}</div>
-                                <div class="popup-body">
-                                    <div class="rain-value" style="color:${color3}">${formatAngka(pos.das3_val)} <span class="unit">mm</span></div>
-                                    <span class="popup-label">Total DAS 3</span>
-                                    ${getDasDots('das3', pos.das1_val, pos.das2_val, pos.das3_val)}
-                                    <div style="margin-top:8px;font-size:10px;color:#999;font-style:italic;">s.d. ${dateVal}</div>
-                                </div>`;
-                            let marker3 = L.circleMarker([pos.lintang, pos.bujur], { color: '#fff', fillColor: color3, fillOpacity: 0.9, radius: 9, weight: 1 });
-                            marker3.bindPopup(popup3, {className: 'custom-popup'});
-                            attachMarkerEvents(marker3);
-                            marker3.addTo(das3Layer);
-                        }
-                    });
-                }
-
-                // RENDER TABLE
-                if (data.table_data) {
-                    globalTableData = data.table_data;
-                    globalDailyData = data.daily || [];
-                    renderTable(globalTableData, globalDailyData);
-                } else {
-                    renderTable([], globalDailyData);
-                }
-            }).catch(err => {
-                console.error(err);
-                document.getElementById('loading-text').style.display = 'none';
-            });
-        }
-        function toggleTop10() {
-            var container = document.getElementById("top10Container");
-            var btn = document.getElementById("showTop10Btn");
-
-            // Toggle class 'hidden' pada container
-            if (container.classList.contains("hidden")) {
-                // Memunculkan Tabel
-                container.classList.remove("hidden");
-                btn.classList.add("active"); // Sembunyikan tombol trigger
-            } else {
-            // Menyembunyikan Tabel
-            container.classList.add("hidden");
-            btn.classList.remove("active"); // Munculkan tombol trigger
-            }
-        }
-
-        function toggleMenu() {
-            var menu = document.getElementById("navMenu");
-
-            // Menambah atau menghapus class 'active'
-            menu.classList.toggle("active");
-
-            //Log debugging untuk memastikan fungsi terpanggil
-            console.log("Status Menu Active:", menu.classList.contains("active"));
-
-
-            if (menu.style.display === "flex") {
-                menu.style.display = ""; // Reset ke CSS bawaan (sembunyi)
-                menu.classList.remove("active");
-            } else {
-                menu.style.display = "flex"; // Paksa muncul
-                menu.classList.add("active");
-            }
-        }
-
-        function toggleDateBox() {
-            const box = document.getElementById('dateControlBox');
-            const btn = document.getElementById('btnShowDate');
-            // Jika kotak sedang tertutup (display: none)
-            if (box.style.display === 'none') {
-                // Tampilkan Kotak
-                box.style.display = 'flex';
-                // Sembunyikan Tombol Pemicu
-                btn.style.display = 'none';
-            }
-            else {
-                // Sembunyikan Kotak
-                box.style.display = 'none';
-                // Tampilkan Tombol Pemicu kembali
-                btn.style.display = 'block';
-            }
-        }
-
     </script>
 </body>
 </html>
