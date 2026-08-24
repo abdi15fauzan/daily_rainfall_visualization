@@ -1136,7 +1136,6 @@ def analisis_pos_info():
 # API CONFIG — Kirim PETA_CSV_URL ke frontend (tanpa expose ke source HTML)
 # ==============================================================================
 @app.route('/api/config/peta-csv-url')
-@login_required
 def get_peta_csv_url():
     return jsonify({'url': PETA_CSV_URL})
 
