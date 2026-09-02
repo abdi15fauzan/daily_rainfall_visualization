@@ -902,7 +902,7 @@
         // ====================== MAP HOME ======================
         var mapHome = L.map('map', {zoomControl: false}).setView([-0.5, 116.5], 7);
         L.control.zoom({ position: 'topleft' }).addTo(mapHome);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '© OpenStreetMap & CartoDB'}).addTo(mapHome);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap contributors', maxZoom: 19}).addTo(mapHome);
 
         var legendHome = L.control({position: 'bottomright'});
         legendHome.onAdd = function (map) {

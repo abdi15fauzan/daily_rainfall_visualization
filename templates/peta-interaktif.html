@@ -640,7 +640,7 @@
         // ====================== MAP INTERACTIVE ======================
         var mapInteractive = L.map('map-interactive', {zoomControl: false}).setView([-0.5, 116.5], 7);
         L.control.zoom({ position: 'topleft' }).addTo(mapInteractive);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '© OpenStreetMap & CartoDB'}).addTo(mapInteractive);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap contributors', maxZoom: 19}).addTo(mapInteractive);
 
         // Semua layer TIDAK ditambah ke peta dulu — radio-select kustom yang mengontrol
         var dailyLayer = L.layerGroup();
