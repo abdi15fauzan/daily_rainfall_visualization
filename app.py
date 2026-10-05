@@ -1168,7 +1168,11 @@ def get_peta_csv_url():
     return jsonify({'url': PETA_CSV_URL})
 
 # ================== AI ASSISTANT (Tahap 2) ==================
-groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
+try:
+    groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
+except Exception as _e:
+    groq_client = None
+    app.logger.exception("Gagal inisialisasi Groq client saat startup (chatbot akan nonaktif, halaman lain tetap jalan): %s", _e)
 
 _REF_DATA_CACHE = {"teks_lookup": "", "loaded_at": None}
 
@@ -1182,7 +1186,10 @@ def muat_referensi_wilayah():
     _REF_DATA_CACHE["teks_lookup"] = "\n".join(baris)
     _REF_DATA_CACHE["loaded_at"] = datetime.now()
 
-muat_referensi_wilayah()
+try:
+    muat_referensi_wilayah()
+except Exception as _e:
+    app.logger.exception("Gagal memuat referensi wilayah saat startup (chatbot tetap jalan, fallback ke tool pencarian): %s", _e)
 
 
 def build_system_prompt(is_logged_in):
@@ -1251,6 +1258,9 @@ def panggil_groq_dengan_retry(messages, tools, max_retry=2):
 
 @app.route('/api/assistant/chat', methods=['POST'])
 def assistant_chat():
+    if groq_client is None:
+        return jsonify({"error": "Asisten AI sedang tidak aktif (konfigurasi belum lengkap). Hubungi admin."}), 503
+
     is_logged_in = bool(session.get('logged_in'))
     body = request.get_json()
     user_message = body.get('message', '')
