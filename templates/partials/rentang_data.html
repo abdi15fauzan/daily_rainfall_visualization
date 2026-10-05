@@ -1,0 +1,97 @@
+<!-- templates/partials/rentang_data.html -->
+<!-- Modul rentang ketersediaan data per pos. Sisipkan SEBELUM blok JS utama di
+     visualisasi.html dan analisis.html. Halaman induk sudah dilindungi login,
+     dan API /api/viz/rentang juga login_required. -->
+<script>
+(function () {
+  'use strict';
+  var D = null, P = null;
+
+  function ym(n) { return { y: Math.floor(n / 100), m: n % 100 }; }
+
+  var RD = {
+    // Ambil data sekali saja per halaman.
+    muat: function () {
+      if (P) return P;
+      P = fetch('/api/viz/rentang', { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { D = (j && Array.isArray(j.d)) ? j.d : null; return D; })
+        .catch(function () { D = null; return null; });
+      return P;
+    },
+
+    ada: function () { return !!(D && D.length); },
+
+    // Rentang gabungan: pos > kabupaten > seluruh Kaltim (kab kosong / 'all').
+    rentang: function (kab, pos) {
+      if (!RD.ada()) return null;
+      var k = String(kab || ''), p = String(pos || ''), a = Infinity, b = -Infinity;
+      D.forEach(function (r) {
+        if (p) { if (String(r.k) !== p) return; }
+        else if (k && k !== 'all') { if (String(r.w) !== k) return; }
+        if (r.a < a) a = r.a;
+        if (r.b > b) b = r.b;
+      });
+      return isFinite(a) ? { awal: ym(a), akhir: ym(b) } : null;
+    },
+
+    // Daftar tahun (menaik). null = data rentang tidak tersedia -> pakai cadangan.
+    tahun: function (kab, pos) {
+      if (!RD.ada()) return null;
+      var r = RD.rentang(kab, pos), out = [];
+      if (!r) return out;
+      for (var y = r.awal.y; y <= r.akhir.y; y++) out.push(y);
+      return out;
+    },
+
+    // Batas bulan yang valid pada tahun tertentu (hanya tahun pertama/terakhir yang dibatasi).
+    bulan: function (kab, pos, thn) {
+      var r = RD.rentang(kab, pos), t = +thn;
+      if (!r) return { dari: 1, sampai: 12 };
+      return {
+        dari: t === r.awal.y ? r.awal.m : 1,
+        sampai: t === r.akhir.y ? r.akhir.m : 12
+      };
+    },
+
+    // Isi <select> tahun. opsi: {desc:boolean, cadangan:[tahun...], pilih:function(list)->tahun}
+    isi: function (sel, list, opsi) {
+      opsi = opsi || {};
+      var prev = sel.value;
+      var data = (list === null || list === undefined) ? (opsi.cadangan || []) : list.slice();
+      data.sort(function (x, y) { return opsi.desc ? y - x : x - y; });
+      sel.innerHTML = '';
+      if (!data.length) {
+        var kosong = new Option('Tidak ada data', '');
+        kosong.disabled = true;
+        sel.add(kosong);
+        sel.value = '';
+        return;
+      }
+      data.forEach(function (t) { sel.add(new Option(t, t)); });
+      var terpilih = data.indexOf(+prev) !== -1
+        ? +prev
+        : (opsi.pilih ? opsi.pilih(data) : Math.max.apply(null, data));
+      sel.value = String(terpilih);
+    },
+
+    // Nonaktifkan bulan di luar [dari, sampai]. reset=true -> pilihan pertama = dari, terakhir = sampai.
+    batasi: function (sels, dari, sampai, reset) {
+      sels.forEach(function (sel, i) {
+        Array.prototype.forEach.call(sel.options, function (o) {
+          var v = +o.value;
+          o.disabled = v < dari || v > sampai;
+        });
+        var v = +sel.value;
+        if (reset && sels.length > 1) {
+          sel.value = String(i === 0 ? dari : sampai);
+        } else if (v < dari || v > sampai) {
+          sel.value = String(v < dari ? dari : sampai);
+        }
+      });
+    }
+  };
+
+  Object.defineProperty(window, 'RD', { value: Object.freeze(RD), writable: false, configurable: false });
+})();
+</script>

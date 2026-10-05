@@ -175,6 +175,8 @@
             .titles h1   { font-size: 13px; }
             .titles p    { display: none; }
         }
+        /* Bulan tanpa data dipudarkan (1/3 lebih terang dari bawaan browser) */
+        select option:disabled{color:#9e9e9e;}
     </style>
 </head>
 <body>
@@ -184,7 +186,7 @@
         <a href="https://www.bmkg.go.id/" target="_blank"><img src="/static/logo.png" class="logo-img"></a>
         <div class="titles">
             <h1>Dashboard Curah Hujan Harian Kalimantan Timur</h1>
-            <p><a href="stamet-samarinda.bmkg.go.id" target="_blank" class="title-link">Stasiun Meteorologi Kelas III Aji Pangeran Tumenggung Pranoto</a></p>
+            <p><a href="stamet-samarinda.bmkg.go.id" target="_blank" class="title-link">Stasiun Meteorologi Kelas II Aji Pangeran Tumenggung Pranoto</a></p>
         </div>
     </div>
     <button class="hamburger" id="ham-btn" onclick="toggleMobileMenu()">
@@ -225,13 +227,13 @@
             </div>
             <div class="filter-group">
                 <label>Pos Hujan:</label>
-                <select id="sel-pos">
+                <select id="sel-pos" onchange="segarBulananViz()">
                     <option value="">-- SEMUA POS (REKAP KABUPATEN) --</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label>Tahun:</label>
-                <select id="sel-tahun"></select>
+                <select id="sel-tahun" onchange="segarBulananViz(true)"></select>
             </div>
             <div class="filter-group">
                 <label>Bulan:</label>
@@ -256,7 +258,7 @@
                 </div>
                 <div class="filter-group">
                     <label>Pos Hujan:</label>
-                    <select id="sel-pos-t">
+                    <select id="sel-pos-t" onchange="segarTahunanViz()">
                         <option value="">-- SEMUA POS (REKAP KAB) --</option>
                     </select>
                 </div>
@@ -277,7 +279,7 @@
                 </div>
                 <div class="filter-group">
                     <label>Pos Hujan:</label>
-                    <select id="sel-pos-dk">
+                    <select id="sel-pos-dk" onchange="segarDekadeViz()">
                         <option value="">-- SEMUA POS (REKAP KAB) --</option>
                     </select>
                 </div>
@@ -589,6 +591,7 @@
 
 <div class="footer">&copy; 2026 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda</div>
 
+{% include 'partials/rentang_data.html' %}
 <script>
 // ── CLOCK ──
 (function tick(){
@@ -708,16 +711,18 @@ let dkLineP    = null, dkLineA = null, dkBarA = null;
 
 function updatePeriodLabel() {
     const ta = +document.getElementById('sel-thn-dk').value;
-    document.getElementById('dk-period-label').innerText = ta + ' – ' + (ta + 9);
+    document.getElementById('dk-period-label').innerText = ta ? (ta + ' – ' + (ta + 9)) : '—';
 }
 
 async function onKabDekadeChange() {
     const kabId = document.getElementById('sel-kab-dk').value;
     const selPos = document.getElementById('sel-pos-dk');
     selPos.innerHTML = '<option value="">-- SEMUA POS (REKAP KAB) --</option>';
-    if (kabId === 'all') return;
-    const data = await (await fetch('/api/viz/pos?wilayah_id=' + kabId)).json();
-    data.forEach(p => { const o = document.createElement('option'); o.value = p.id_kecamatan; o.text = toTitleCase(p.nama_kecamatan); selPos.appendChild(o); });
+    if (kabId !== 'all') {
+        const data = await (await fetch('/api/viz/pos?wilayah_id=' + kabId)).json();
+        data.forEach(p => { const o = document.createElement('option'); o.value = p.id_kecamatan; o.text = toTitleCase(p.nama_kecamatan); selPos.appendChild(o); });
+    }
+    segarDekadeViz();
 }
 
 function hideDkCards() {
@@ -735,8 +740,8 @@ async function tampilkanDekade() {
     document.getElementById('empty-state').style.display = 'none';
     hideDkCards(); msgEl.style.display = 'none';
 
-    if (tahunA > 2018) {
-        msgEl.innerText = `⚠️ Tahun awal ${tahunA} tidak valid. Gunakan tahun awal ≤ 2018.`;
+    if (!tahunA) {
+        msgEl.innerText = '⚠️ Tidak ada data tersedia untuk pilihan ini.';
         msgEl.style.display = 'block'; return;
     }
 
@@ -932,44 +937,54 @@ function renderDkStatB(posName, ta, tb) {
 // ══ end DEKADE ══
 
 // ── INIT ──
-async function initFilters(){
-    const [yrRes,wRes] = await Promise.all([fetch('/api/viz/tahun'), fetch('/api/viz/wilayah')]);
-    const years=await yrRes.json(), wData=await wRes.json();
-    const nowY=new Date().getFullYear();
+let tahunCadangan = [];
 
-    // Bulanan selects
-    const selY=document.getElementById('sel-tahun');
-    (years.length?years:[nowY]).forEach(y=>{ const o=document.createElement('option'); o.value=o.text=y; if(y==nowY)o.selected=true; selY.appendChild(o); });
-    document.getElementById('sel-bulan').value=new Date().getMonth()+1;
-    const selK=document.getElementById('sel-kabupaten');
-    wData.forEach(w=>{ const o=document.createElement('option'); o.value=w.id_wilayah; o.text=toTitleCase(w.nama_wilayah); selK.appendChild(o); });
+function _v(id){ return document.getElementById(id).value; }
 
-    // Tahunan selects — share same years & wilayah
-    const selYt=document.getElementById('sel-thn-t');
-    (years.length?years:[nowY]).forEach(y=>{ const o=document.createElement('option'); o.value=o.text=y; if(y==nowY)o.selected=true; selYt.appendChild(o); });
-    const selKt=document.getElementById('sel-kab-t');
-    wData.forEach(w=>{ const o=document.createElement('option'); o.value=w.id_wilayah; o.text=toTitleCase(w.nama_wilayah); selKt.appendChild(o); });
-    // Dekade selects — only years ≤ 2018 as start years (need 10 years ahead)
-    const selYdk = document.getElementById('sel-thn-dk');
-    const validStarts = years.filter(y => y <= 2018);
-    (validStarts.length ? validStarts : [2016]).forEach(y => {
-        const o = document.createElement('option');
-        o.value = o.text = y;
-        if (y == 2016) o.selected = true;
-        selYdk.appendChild(o);
-    });
-    const selKdk = document.getElementById('sel-kab-dk');
-    wData.forEach(w => { const o = document.createElement('option'); o.value = w.id_wilayah; o.text = toTitleCase(w.nama_wilayah); selKdk.appendChild(o); });
+// Periode mengikuti ketersediaan data pos / kabupaten / seluruh Kaltim.
+function segarBulananViz(dariTahun){
+    const kab=_v('sel-kabupaten'), pos=_v('sel-pos');
+    if(!dariTahun) RD.isi(document.getElementById('sel-tahun'), RD.tahun(kab,pos), {desc:true, cadangan:tahunCadangan});
+    const b=RD.bulan(kab,pos,_v('sel-tahun'));
+    RD.batasi([document.getElementById('sel-bulan')], b.dari, b.sampai, false);
+}
+function segarTahunanViz(){
+    RD.isi(document.getElementById('sel-thn-t'), RD.tahun(_v('sel-kab-t'),_v('sel-pos-t')), {desc:true, cadangan:tahunCadangan});
+}
+function segarDekadeViz(){
+    // Tahun awal dekade: dari data paling awal s.d. (data terakhir - 9). Bila data < 10 tahun, hanya tahun awal data.
+    const L=RD.tahun(_v('sel-kab-dk'),_v('sel-pos-dk'));
+    let list=L;
+    if(L && L.length){ const mx=L[L.length-1]-9; list=L.filter(y=>y<=mx); if(!list.length) list=[L[0]]; }
+    RD.isi(document.getElementById('sel-thn-dk'), list, {desc:true, cadangan:tahunCadangan});
     updatePeriodLabel();
+}
+
+// ── INIT ──
+async function initFilters(){
+    const [yrRes,wRes] = await Promise.all([fetch('/api/viz/tahun'), fetch('/api/viz/wilayah'), RD.muat()]);
+    const years=await yrRes.json(), wData=await wRes.json();
+    tahunCadangan = Array.isArray(years) ? years : [];
+
+    const isiKab=(id)=>{ const sel=document.getElementById(id); wData.forEach(w=>{ const o=document.createElement('option'); o.value=w.id_wilayah; o.text=toTitleCase(w.nama_wilayah); sel.appendChild(o); }); };
+    isiKab('sel-kabupaten'); isiKab('sel-kab-t'); isiKab('sel-kab-dk');
+
+    segarBulananViz(); segarTahunanViz(); segarDekadeViz();
+    // Default bulan = bulan berjalan bila tersedia pada tahun terpilih
+    const selB=document.getElementById('sel-bulan');
+    const bs=new Date().getMonth()+1;
+    if(!selB.options[bs-1].disabled) selB.value=bs;
 }
 
 async function onKabupatenChange(){
     const kabId=document.getElementById('sel-kabupaten').value;
     const selPos=document.getElementById('sel-pos');
     selPos.innerHTML='<option value="">-- SEMUA POS (REKAP KABUPATEN) --</option>';
-    if(kabId==='all')return;
-    const data=await(await fetch('/api/viz/pos?wilayah_id='+kabId)).json();
-    data.forEach(p=>{ const o=document.createElement('option'); o.value=p.id_kecamatan; o.text=toTitleCase(p.nama_kecamatan); selPos.appendChild(o); });
+    if(kabId!=='all'){
+        const data=await(await fetch('/api/viz/pos?wilayah_id='+kabId)).json();
+        data.forEach(p=>{ const o=document.createElement('option'); o.value=p.id_kecamatan; o.text=toTitleCase(p.nama_kecamatan); selPos.appendChild(o); });
+    }
+    segarBulananViz();
 }
 
 async function tampilkan(){
@@ -977,6 +992,7 @@ async function tampilkan(){
     const posId=document.getElementById('sel-pos').value;
     const tahun=document.getElementById('sel-tahun').value;
     const bulan=document.getElementById('sel-bulan').value;
+    if(!tahun) return;
     document.getElementById('empty-state').style.display='none';
 
     const url1=kabId==='all'?`/api/viz/data-kabupaten?tahun=${tahun}&bulan=${bulan}`:`/api/viz/data-kabupaten?wilayah_id=${kabId}&tahun=${tahun}&bulan=${bulan}`;
@@ -1259,19 +1275,22 @@ async function onKabTahunanChange() {
     const kabId = document.getElementById('sel-kab-t').value;
     const selPos = document.getElementById('sel-pos-t');
     selPos.innerHTML = '<option value="">-- SEMUA POS (REKAP KAB) --</option>';
-    if (kabId === 'all') return;
-    const data = await (await fetch('/api/viz/pos?wilayah_id=' + kabId)).json();
-    data.forEach(p => {
-        const o = document.createElement('option');
-        o.value = p.id_kecamatan; o.text = toTitleCase(p.nama_kecamatan);
-        selPos.appendChild(o);
-    });
+    if (kabId !== 'all') {
+        const data = await (await fetch('/api/viz/pos?wilayah_id=' + kabId)).json();
+        data.forEach(p => {
+            const o = document.createElement('option');
+            o.value = p.id_kecamatan; o.text = toTitleCase(p.nama_kecamatan);
+            selPos.appendChild(o);
+        });
+    }
+    segarTahunanViz();
 }
 
 async function tampilkanTahunan() {
     const kabId   = document.getElementById('sel-kab-t').value;
     const posId   = document.getElementById('sel-pos-t').value;
     const tahun   = document.getElementById('sel-thn-t').value;
+    if (!tahun) return;
 
     document.getElementById('empty-state').style.display = 'none';
     document.getElementById('thn-chartA-card').style.display = 'none';
@@ -1608,5 +1627,6 @@ function renderStatDashboard(posName, tahun) {
 
 initFilters();
 </script>
+{% include 'partials/chat_widget.html' %}
 </body>
 </html>

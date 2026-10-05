@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analisis — Dashboard Iklim Kaltim</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -153,6 +153,34 @@
         .chart-select-row select{padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;}
         .chart-canvas-wrap{position:relative;width:100%;max-width:900px;}
 
+        /* ── Item 1: bulan tanpa data dipudarkan (1/3 lebih terang dari bawaan browser) ── */
+        select option:disabled{color:#9e9e9e;}
+
+        /* ── Item 3: sorotan nilai maksimum harus menang atas warna baris genap ── */
+        table.annual-table td.max-val,
+        table.annual-table tr:nth-child(even) td.max-val{background:#e74c3c;color:#fff;font-weight:700;}
+
+        /* ── Item 5/6: sel X + keterangan matriks ── */
+        table.matrix td.x-cell{background:rgba(231,76,60,0.25);color:#c0392b;font-weight:700;}
+        .matrix-legend{display:flex;flex-wrap:wrap;gap:6px 26px;align-items:center;margin-top:14px;padding:10px 18px;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);font-size:12px;color:#444;}
+        .matrix-legend b{color:#2c3e50;}
+        .matrix-legend .lg-x{display:inline-block;min-width:18px;padding:0 5px;text-align:center;background:rgba(231,76,60,0.25);color:#c0392b;font-weight:700;border-radius:3px;}
+
+        /* ── Item 4: tampilkan seluruh bulan ── */
+        .btn-semua-bulan{background:#2c3e50;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;transition:background .2s;}
+        .btn-semua-bulan:hover{background:#3498db;}
+        .chart-all-grid{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:6px;}
+        .chart-all-item{position:relative;height:280px;border:1px solid #eee;border-radius:8px;padding:8px;background:#fff;}
+        @media (max-width:900px){.chart-all-grid{grid-template-columns:1fr;}}
+
+        /* ── Item 8: ringkasan unduhan Semua Pos ── */
+        .semua-pos-box{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:20px 24px;}
+        .semua-pos-box h4{margin:0 0 8px;font-size:14px;color:#2c3e50;}
+        .semua-pos-box p{margin:0 0 12px;font-size:13px;color:#555;}
+        .sp-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+        .sp-chip{font-size:11.5px;padding:3px 10px;border-radius:12px;background:#eafbea;color:#1e8449;font-weight:600;}
+        .sp-chip.skip{background:#eee;color:#888;}
+        .sp-chip.fail{background:#fdecea;color:#c0392b;}
     </style>
 </head>
 <body>
@@ -163,7 +191,7 @@
         <a href="https://www.bmkg.go.id/" target="_blank"><img src="/static/logo.png" class="logo-img"></a>
         <div class="titles">
             <h1>Dashboard Curah Hujan Harian Kalimantan Timur</h1>
-            <p><a href="https://bmkgsamarinda.com/" target="_blank" class="title-link">Stasiun Meteorologi Kelas III Aji Pangeran Tumenggung Pranoto</a></p>
+            <p><a href="http://stamet-samarinda.bmkg.go.id//" target="_blank" class="title-link">Stasiun Meteorologi Kelas II Aji Pangeran Tumenggung Pranoto</a></p>
         </div>
     </div>
     <nav class="nav-menu">
@@ -212,6 +240,7 @@
 </div><!-- /.main-wrap -->
 
 <div class="footer">&copy; 2025 Stasiun Meteorologi Aji Pangeran Tumenggung Pranoto - Samarinda</div>
+{% include 'partials/rentang_data.html' %}
 
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -225,6 +254,9 @@ let currentData  = null;
 let currentMeta  = {};
 let chartInstance= null;
 let kabList=[], thnList=[];
+const MAKS_TAHUN_SEMUA_POS = 10;              // batas beban server saat unduh Semua Pos (mode Tahunan)
+const posKey = v => (v === 'all' ? '' : v);   // "Semua Pos" = rentang data tingkat kabupaten
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // ── CLOCK ──
 (function tick(){
@@ -241,7 +273,8 @@ let kabList=[], thnList=[];
 async function init(){
     [kabList,thnList]=await Promise.all([
         fetch('/api/viz/wilayah').then(r=>r.json()),
-        fetch('/api/viz/tahun').then(r=>r.json())
+        fetch('/api/viz/tahun').then(r=>r.json()),
+        RD.muat()
     ]);
     switchMode('tahunan');
 }
@@ -276,6 +309,7 @@ function resetOutput(){
     const ex=document.getElementById('annual-summary-section');
     if(ex) ex.remove();
     if(chartInstance){chartInstance.destroy();chartInstance=null;}
+    bersihkanGrafikSemua();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -297,9 +331,9 @@ async function showPosInfo(kid,kabName,posName){
         const grid=document.getElementById('pos-info-grid');
         grid.innerHTML=`
             <div class="pos-info-row"><span class="pos-info-key">Pos Hujan</span><span class="pos-info-sep">:</span><span class="pos-info-val">${posName}</span></div>
-            <div class="pos-info-row"><span class="pos-info-key">Lintang</span><span class="pos-info-sep">:</span><span class="pos-info-val">${info.latitude!==null?info.latitude:'-'}</span></div>
+            <div class="pos-info-row"><span class="pos-info-key">Lintang</span><span class="pos-info-sep">:</span><span class="pos-info-val">${info.lintang!=null?info.lintang:'-'}</span></div>
             <div class="pos-info-row"><span class="pos-info-key">Kecamatan</span><span class="pos-info-sep">:</span><span class="pos-info-val">${posName}</span></div>
-            <div class="pos-info-row"><span class="pos-info-key">Bujur</span><span class="pos-info-sep">:</span><span class="pos-info-val">${info.longitude!==null?info.longitude:'-'}</span></div>
+            <div class="pos-info-row"><span class="pos-info-key">Bujur</span><span class="pos-info-sep">:</span><span class="pos-info-val">${info.bujur!=null?info.bujur:'-'}</span></div>
             <div class="pos-info-row"><span class="pos-info-key">Kab/Kota</span><span class="pos-info-sep">:</span><span class="pos-info-val">${kabLabel}</span></div>`;
 
         document.getElementById('pos-info-box').style.display='block';
@@ -342,19 +376,27 @@ function buildFilterTahunan(){
     const selKab=document.getElementById('ta-kab');
     kabList.forEach(k=>selKab.add(new Option(k.nama_wilayah,k.id_wilayah)));
 
-    const selTA=document.getElementById('ta-tA');
-    const selTB=document.getElementById('ta-tB');
-    [...thnList].reverse().forEach(t=>{selTA.add(new Option(t,t));selTB.add(new Option(t,t));});
-    if(thnList.length){selTA.value=thnList[0];selTB.value=thnList[0];}
+    segarTahunan();
 
     selKab.addEventListener('change',async function(){
         const wid=this.value,selPos=document.getElementById('ta-pos');
         selPos.innerHTML='<option value="">-- Pilih Pos --</option>';selPos.disabled=true;
-        if(!wid){selPos.innerHTML='<option value="">-- Pilih Kabupaten Dulu --</option>';return;}
+        if(!wid){selPos.innerHTML='<option value="">-- Pilih Kabupaten Dulu --</option>';segarTahunan();return;}
         const list=await fetch(`/api/viz/pos?wilayah_id=${wid}`).then(r=>r.json());
+        if(list.length>1) selPos.add(new Option('Semua Pos','all'));
         list.forEach(p=>selPos.add(new Option(p.nama_kecamatan,p.id_kecamatan)));
         selPos.disabled=false;
+        segarTahunan();
     });
+    document.getElementById('ta-pos').addEventListener('change',segarTahunan);
+}
+
+// Periode mengikuti ketersediaan data pos / kabupaten (kosong = seluruh pos).
+function segarTahunan(){
+    const kab=document.getElementById('ta-kab').value, pos=posKey(document.getElementById('ta-pos').value);
+    const L=RD.tahun(kab,pos), cad=[...thnList];
+    RD.isi(document.getElementById('ta-tA'),L,{cadangan:cad});
+    RD.isi(document.getElementById('ta-tB'),L,{cadangan:cad});
 }
 
 async function tampilkanTahunan(){
@@ -364,9 +406,14 @@ async function tampilkanTahunan(){
     const tB=parseInt(document.getElementById('ta-tB').value);
     if(!wid) return showError('Silahkan pilih Kabupaten terlebih dahulu.');
     if(!kid) return showError('Silahkan pilih Pos yang ingin ditampilkan.');
+    if(!tA||!tB) return showError('Pos ini belum memiliki data yang valid.');
     if(tB<tA) return showError('Tahun akhir tidak boleh lebih kecil dari tahun awal.');
     if((tB-tA+1)>20) return showError('Maksimal 20 tahun dalam satu tampilan.');
 
+    if(kid==='all'){
+        if((tB-tA+1)>MAKS_TAHUN_SEMUA_POS) return showError(`Untuk Semua Pos, maksimal ${MAKS_TAHUN_SEMUA_POS} tahun dalam satu unduhan.`);
+        return tampilkanSemuaPos('tahunan',{wid,tA,tB});
+    }
     setLoading();
     try{
         const data=await fetch(`/api/analisis/matriks?kecamatan_id=${kid}&tahun_awal=${tA}&tahun_akhir=${tB}`).then(r=>r.json());
@@ -419,23 +466,33 @@ function buildFilterBulanan(){
     const selKab=document.getElementById('bu-kab');
     kabList.forEach(k=>selKab.add(new Option(k.nama_wilayah,k.id_wilayah)));
 
-    const selThn=document.getElementById('bu-thn');
-    [...thnList].reverse().forEach(t=>selThn.add(new Option(t,t)));
-    if(thnList.length) selThn.value=thnList[0];
-
     const selBA=document.getElementById('bu-bA');
     const selBB=document.getElementById('bu-bB');
     BULAN_FULL.forEach((b,i)=>{selBA.add(new Option(b,i+1));selBB.add(new Option(b,i+1));});
     selBA.value=1; selBB.value=12;
+    segarBulanan(false);
 
     selKab.addEventListener('change',async function(){
         const wid=this.value,selPos=document.getElementById('bu-pos');
         selPos.innerHTML='<option value="">-- Pilih Pos --</option>';selPos.disabled=true;
-        if(!wid){selPos.innerHTML='<option value="">-- Pilih Kabupaten Dulu --</option>';return;}
+        if(!wid){selPos.innerHTML='<option value="">-- Pilih Kabupaten Dulu --</option>';segarBulanan(false);return;}
         const list=await fetch(`/api/viz/pos?wilayah_id=${wid}`).then(r=>r.json());
+        if(list.length>1) selPos.add(new Option('Semua Pos','all'));
         list.forEach(p=>selPos.add(new Option(p.nama_kecamatan,p.id_kecamatan)));
         selPos.disabled=false;
+        segarBulanan(false);
     });
+    document.getElementById('bu-pos').addEventListener('change',()=>segarBulanan(false));
+    document.getElementById('bu-thn').addEventListener('change',()=>segarBulanan(true));
+}
+
+// Tahun mengikuti data pos/kabupaten; bulan dibatasi pada tahun pertama & terakhir data.
+function segarBulanan(hanyaBulan){
+    const kab=document.getElementById('bu-kab').value, pos=posKey(document.getElementById('bu-pos').value);
+    const selThn=document.getElementById('bu-thn');
+    if(!hanyaBulan) RD.isi(selThn,RD.tahun(kab,pos),{desc:false,cadangan:[...thnList]});
+    const b=RD.bulan(kab,pos,selThn.value);
+    RD.batasi([document.getElementById('bu-bA'),document.getElementById('bu-bB')],b.dari,b.sampai,true);
 }
 
 async function tampilkanBulanan(){
@@ -446,8 +503,10 @@ async function tampilkanBulanan(){
     const bB=parseInt(document.getElementById('bu-bB').value);
     if(!wid) return showError('Silahkan pilih Kabupaten terlebih dahulu.');
     if(!kid) return showError('Silahkan pilih Pos yang ingin ditampilkan.');
+    if(!thn) return showError('Pos ini belum memiliki data yang valid.');
     if(bB<bA) return showError('Bulan akhir tidak boleh lebih kecil dari bulan awal.');
 
+    if(kid==='all') return tampilkanSemuaPos('bulanan',{wid,thn,bA,bB});
     setLoading();
     try{
         const data=await fetch(`/api/analisis/bulanan?kecamatan_id=${kid}&tahun=${thn}&bulan_awal=${bA}&bulan_akhir=${bB}`).then(r=>r.json());
@@ -476,16 +535,28 @@ function setLoading(){
     document.getElementById('download-bar').style.display='none';
 }
 
-// ── Value display helpers ──
-// raw → display string: 0→'-', 9999/invalid→'' (merah), 8888→'0.1'
-function dispVal(raw){
-    if(raw===null||raw===undefined) return {v:'', cls:'data-cell'};
-    const n=parseFloat(raw);
-    if(isNaN(n)) return {v:'', cls:'data-cell'};
-    if(n===9999||(n>887&&n!==8888)) return {v:'', cls:'invalid-cell'};
-    if(n===8888) return {v:'0.1', cls:'data-cell'};
-    if(n===0)    return {v:'-',   cls:'data-cell'};
-    return {v: n%1===0?String(n):parseFloat(n.toFixed(1)).toString(), cls:'data-cell'};
+// ── Nilai sel matriks ──
+// Aturan: nilai valid apa adanya (0 tetap 0, 8888 tetap 8888);
+// kosong / 9999 / tak valid pada tanggal SEBELUM hari ini => "X" (tidak terisi);
+// tanggal hari ini & sesudahnya yang belum ada data => "-" (belum terisi).
+const _fmtWita = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Makassar',year:'numeric',month:'2-digit',day:'2-digit'});
+function hariIniWita(){ const p=_fmtWita.format(new Date()).split('-'); return {y:+p[0],m:+p[1],d:+p[2]}; }
+let HARI_INI = hariIniWita();
+function segarHariIni(){ HARI_INI = hariIniWita(); }
+function sudahLewat(y,m,d){
+    const t=HARI_INI;
+    return y!==t.y ? y<t.y : (m!==t.m ? m<t.m : d<t.d);
+}
+// return {v:teks tampil, num:angka utk Excel|null, kind:'X'|'-'|'val', cls}
+function cellMatrix(raw,y,m,d){
+    const n=(raw===null||raw===undefined)?NaN:parseFloat(raw);
+    const tidakValid=isNaN(n)||n===9999||(n>887&&n!==8888);
+    if(tidakValid){
+        return sudahLewat(y,m,d) ? {v:'X',num:null,kind:'X',cls:'x-cell'}
+                                 : {v:'-',num:null,kind:'-',cls:'data-cell'};
+    }
+    const teks = n%1===0 ? String(n) : parseFloat(n.toFixed(1)).toString();
+    return {v:teks,num:n,kind:'val',cls:'data-cell'};
 }
 
 function fmtN(v,d=1){
@@ -498,13 +569,20 @@ function fmtPct(v){ const n=parseFloat(v); return isNaN(n)?'-':n.toFixed(2)+'%';
 // ══════════════════════════════════════════════════════════════════
 //  RENDER — TAHUNAN (MATRIKS)
 // ══════════════════════════════════════════════════════════════════
+const LEGEND_MATRIKS = `<div class="matrix-legend">
+        <span><b>Satuan:</b> Milimeter</span>
+        <span><span class="lg-x">X</span> (9999) : Data tidak valid</span>
+        <span><b>8888</b> : Tidak terukur (CH &lt; 0,5)</span>
+        <span><b>-</b> : Belum terisi</span></div>`;
+
 function renderTahunan(years,posName){
+    segarHariIni();
     let html='<div class="matrix-scroll-box"><div class="matrix-wrap">';
     years.forEach((yr,i)=>{
         if(i>0) html+='<hr class="matrix-separator">';
         html+=buildMatrixHtml(yr,posName);
     });
-    html+='</div></div>';
+    html+='</div></div>'+LEGEND_MATRIKS;
     document.getElementById('main-output').innerHTML=html;
 }
 
@@ -553,9 +631,8 @@ function dayRow(yr,d,dim){
     let h=`<tr><td class="row-label">${d}</td>`;
     for(let m=1;m<=12;m++){
         if(d>(dim[m]||31)){h+='<td class="out-range"></td>';continue;}
-        const raw=row['m'+m];
-        const {v,cls}=dispVal(raw);
-        h+=`<td class="${cls}">${v||'<span style="color:#ccc">-</span>'}</td>`;
+        const {v,cls,kind}=cellMatrix(row['m'+m],yr.tahun,m,d);
+        h+=`<td class="${cls}">${kind==='-'?'<span style="color:#999">-</span>':v}</td>`;
     }
     return h+'</tr>';
 }
@@ -685,15 +762,19 @@ function renderBulanan(data,posName,thn,bA,bB){
         <div class="chart-select-row">
             <label>Pilih Bulan:</label>
             <select id="chart-bulan-sel" onchange="updateChart()">${bulanOpts}</select>
+            <button type="button" class="btn-semua-bulan" id="btn-semua-bulan" onclick="toggleSemuaBulan()">Tampilkan Seluruh Bulan</button>
         </div>
         <div class="chart-canvas-wrap">
             <canvas id="ch-bar-chart" style="max-height:380px;"></canvas>
-        </div>`;
+        </div>
+        <div class="chart-all-grid" id="chart-all-grid"></div>`;
     out.appendChild(chartWrap);
 
     // Store daily data globally for chart
     window._bulananDailyData = data.daily_by_month;
     window._bulananMeta = {posName, thn};
+    window._bulananList = data.months.map(m=>m.bulan);
+    bersihkanGrafikSemua();
 
     // Draw first month's chart
     if(data.months.length>0){
@@ -702,14 +783,10 @@ function renderBulanan(data,posName,thn,bA,bB){
     }
 }
 
-function updateChart(){
-    const selBulan=parseInt(document.getElementById('chart-bulan-sel').value);
-    const dailyData=window._bulananDailyData||{};
-    const {posName,thn}=window._bulananMeta||{};
-    const bName=BULAN_FULL[selBulan-1];
-
-    const days=dailyData[selBulan]||[];
-    const labels=days.map(d=>String(d.hari));
+// Konfigurasi grafik harian satu bulan (dipakai mode satu bulan & seluruh bulan)
+function configGrafikBulan(bulan,kecil){
+    const days=(window._bulananDailyData||{})[bulan]||[];
+    const {thn}=window._bulananMeta||{};
     const values=days.map(d=>{
         if(d.curah_hujan===null||d.curah_hujan===undefined) return 0;
         const n=parseFloat(d.curah_hujan);
@@ -717,52 +794,64 @@ function updateChart(){
         if(n===8888) return 0.1;
         return n;
     });
-
-    // Semua bar biru — tidak ada pewarnaan merah untuk tertinggi
-    const colors=values.map(()=>'#2980b9');
-
-    const ctx=document.getElementById('ch-bar-chart').getContext('2d');
-    if(chartInstance){chartInstance.destroy();chartInstance=null;}
-
-    chartInstance=new Chart(ctx,{
+    const fs=kecil?10:11;
+    return {
         type:'bar',
-        data:{
-            labels:labels,
-            datasets:[{
-                label:`Curah Hujan (mm)`,
-                data:values,
-                backgroundColor:colors,
-                borderColor:colors,
-                borderWidth:1
-            }]
-        },
+        data:{labels:days.map(d=>String(d.hari)),
+              datasets:[{label:'Curah Hujan (mm)',data:values,backgroundColor:'#2980b9',borderColor:'#2980b9',borderWidth:1}]},
         options:{
             responsive:true,
+            maintainAspectRatio:!kecil,
+            animation:kecil?false:undefined,
             plugins:{
                 legend:{display:false},
-                title:{
-                    display:true,
-                    text:`Data Curah Hujan ${bName} ${thn}`,
-                    font:{size:14,weight:'bold'},
-                    color:'#2c3e50',
-                    padding:{bottom:12}
-                }
+                title:{display:true,text:`Data Curah Hujan ${BULAN_FULL[bulan-1]} ${thn}`,
+                       font:{size:kecil?12:14,weight:'bold'},color:'#2c3e50',padding:{bottom:kecil?6:12}}
             },
             scales:{
-                x:{
-                    title:{display:true,text:'Tanggal',font:{size:12},color:'#555'},
-                    grid:{display:false},
-                    ticks:{color:'#555',font:{size:11}}
-                },
-                y:{
-                    title:{display:true,text:'Curah Hujan (mm)',font:{size:12},color:'#555'},
-                    beginAtZero:true,
-                    grid:{color:'rgba(0,0,0,0.06)'},
-                    ticks:{color:'#555',font:{size:11}}
-                }
+                x:{title:{display:true,text:'Tanggal',font:{size:fs+1},color:'#555'},grid:{display:false},ticks:{color:'#555',font:{size:fs-1}}},
+                y:{title:{display:true,text:'Curah Hujan (mm)',font:{size:fs+1},color:'#555'},beginAtZero:true,
+                   grid:{color:'rgba(0,0,0,0.06)'},ticks:{color:'#555',font:{size:fs}}}
             }
         }
-    });
+    };
+}
+
+function updateChart(){
+    const bulan=parseInt(document.getElementById('chart-bulan-sel').value);
+    const ctx=document.getElementById('ch-bar-chart').getContext('2d');
+    if(chartInstance){chartInstance.destroy();chartInstance=null;}
+    chartInstance=new Chart(ctx,configGrafikBulan(bulan,false));
+}
+
+let chartsAll=[], modeSemuaBulan=false;
+function bersihkanGrafikSemua(){
+    chartsAll.forEach(c=>c.destroy()); chartsAll=[]; modeSemuaBulan=false;
+    const g=document.getElementById('chart-all-grid');
+    if(g){g.innerHTML='';g.style.display='none';}
+}
+
+function toggleSemuaBulan(){
+    const grid=document.getElementById('chart-all-grid');
+    const single=document.querySelector('#bul-chart-wrap .chart-canvas-wrap');
+    const sel=document.getElementById('chart-bulan-sel');
+    const btn=document.getElementById('btn-semua-bulan');
+    if(!grid||!single) return;
+    if(!modeSemuaBulan){
+        if(chartInstance){chartInstance.destroy();chartInstance=null;}
+        single.style.display='none'; sel.disabled=true;
+        grid.innerHTML=''; grid.style.display='grid';
+        (window._bulananList||[]).forEach(b=>{
+            const box=document.createElement('div'); box.className='chart-all-item';
+            const cv=document.createElement('canvas'); box.appendChild(cv); grid.appendChild(box);
+            chartsAll.push(new Chart(cv.getContext('2d'),configGrafikBulan(b,true)));
+        });
+        modeSemuaBulan=true; btn.textContent='Tampilkan Satu Bulan';
+    }else{
+        bersihkanGrafikSemua();
+        single.style.display=''; sel.disabled=false;
+        updateChart(); btn.textContent='Tampilkan Seluruh Bulan';
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -784,95 +873,233 @@ function showDlBarBulanan(){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  DOWNLOAD — TAHUNAN XLSX
+//  EXCEL (ExcelJS) — satu gaya tabel untuk Tahunan, Bulanan & Semua Pos
 // ══════════════════════════════════════════════════════════════════
-function downloadXlsxTahunan(){
-    if(!currentData) return;
-    const {posName,kabName,tahunAwal,tahunAkhir}=currentMeta;
-    const wb=XLSX.utils.book_new();
-    currentData.forEach(yr=>{
-        const ws=XLSX.utils.aoa_to_sheet(xlsxSheetTahunan(yr,posName));
-        ws['!cols']=[{wch:16},...Array(12).fill({wch:9})];
+const XL_GARIS={style:'thin',color:{argb:'FF9E9E9E'}};
+const XL_KOTAK={top:XL_GARIS,left:XL_GARIS,bottom:XL_GARIS,right:XL_GARIS};
+const XL_WARNA={head:'FFAAAAAA',label:'FFEDEDED',sect:'FFC8C8C8',das:'FFE8F4E8',thn:'FFE0E8F0',luar:'FFF2F2F2',x:'FFF6CFCB'};
+const XL_LEGENDA='Satuan: milimeter  |  X (9999): data tidak valid  |  8888: tidak terukur (CH < 0,5)  |  - : belum terisi';
 
-        // Highlight invalid (9999) cells merah
-        const dim=yr.days_in_month;
-        for(let d=1;d<=31;d++){
-            const rowObj=yr.days.find(r=>r.hari===d)||{};
-            // row in sheet: title=1, blank=2, header=3, then d starts at 3+d (day 1 = row index 3)
-            const xlsxRowBase=3; // 0-indexed rows: row0=title,row1=blank,row2=header
-            const rowIdx=xlsxRowBase+d-1;
-            for(let m=1;m<=12;m++){
-                const raw=rowObj['m'+m];
-                if(raw===null||raw===undefined) continue;
-                const n=parseFloat(raw);
-                if(n===9999||(n>887&&n!==8888)){
-                    const cellAddr=XLSX.utils.encode_cell({r:rowIdx,c:m});
-                    if(!ws[cellAddr]) ws[cellAddr]={t:'s',v:''};
-                    ws[cellAddr].s={fill:{fgColor:{rgb:'FFCCCC'}}};
-                }
-            }
+function xlSel(c,o){
+    o=o||{};
+    c.border=XL_KOTAK;
+    c.alignment={horizontal:o.h||'center',vertical:'middle'};
+    c.font={name:'Calibri',size:10,bold:!!o.b,color:{argb:o.color||'FF000000'}};
+    if(o.fill) c.fill={type:'pattern',pattern:'solid',fgColor:{argb:o.fill}};
+}
+function xlTulis(ws,r,c,val,o){ const cell=ws.getCell(r,c); cell.value=val; xlSel(cell,o); return cell; }
+// gabung sel dari kolom c1..c2 pada baris r, semua sel tetap bergaris
+function xlGabung(ws,r,c1,c2,val,o){
+    for(let c=c1;c<=c2;c++) xlSel(ws.getCell(r,c),o);
+    if(c2>c1) ws.mergeCells(r,c1,r,c2);
+    ws.getCell(r,c1).value=val;
+}
+function xlJudul(ws,r,teks,lastCol){
+    ws.mergeCells(r,1,r,lastCol);
+    const c=ws.getCell(r,1); c.value=teks;
+    c.font={name:'Calibri',size:12,bold:true}; c.alignment={horizontal:'left',vertical:'middle'};
+}
+function xlCatatan(ws,r,teks,lastCol){
+    ws.mergeCells(r,1,r,lastCol);
+    const c=ws.getCell(r,1); c.value=teks;
+    c.font={name:'Calibri',size:9,italic:true,color:{argb:'FF555555'}}; c.alignment={horizontal:'left'};
+}
+function xlLebarMatriks(ws){ ws.columns=[{width:16},...Array(12).fill({width:9})]; }
+function xlLebarBulanan(ws){ ws.columns=[{width:16},{width:22},{width:24},{width:20}]; }
+
+// Satu blok matriks (1 tahun). Return: baris kosong berikutnya.
+function xlBlokMatriks(ws,r,yr,posName){
+    segarHariIni();
+    const dim=yr.days_in_month;
+    xlJudul(ws,r,`MATRIKS CH HARIAN — ${posName.toUpperCase()} — TAHUN ${yr.tahun}`,13); r+=2;
+
+    xlTulis(ws,r,1,'TGL/BULAN',{b:true,fill:XL_WARNA.head});
+    BULAN.forEach((b,i)=>xlTulis(ws,r,i+2,b,{b:true,fill:XL_WARNA.head}));
+    r++;
+
+    for(let d=1;d<=31;d++){
+        const row=yr.days.find(x=>x.hari===d)||{};
+        xlTulis(ws,r,1,d,{b:true,fill:XL_WARNA.label});
+        for(let m=1;m<=12;m++){
+            if(d>(dim[m]||31)){ xlTulis(ws,r,m+1,null,{fill:XL_WARNA.luar}); continue; }
+            const c=cellMatrix(row['m'+m],yr.tahun,m,d);
+            if(c.kind==='X')        xlTulis(ws,r,m+1,'X',{b:true,color:'FFC0392B',fill:XL_WARNA.x});
+            else if(c.kind==='-')   xlTulis(ws,r,m+1,'-',{color:'FF777777'});
+            else                    xlTulis(ws,r,m+1,c.num,{});
         }
-        XLSX.utils.book_append_sheet(wb,ws,String(yr.tahun));
-    });
-    const tl=tahunAwal===tahunAkhir?tahunAwal:`${tahunAwal}-${tahunAkhir}`;
-    XLSX.writeFile(wb,`MATRIKS CH Harian ${kabName} Tahun ${tl}.xlsx`);
+        r++;
+    }
+
+    const angka=(v)=>(v!==null&&v!==undefined&&v!==0)?v:'-';
+    const barisDas=(label,data)=>{ xlTulis(ws,r,1,label,{b:true,fill:XL_WARNA.das,h:'left'});
+        for(let m=1;m<=12;m++) xlTulis(ws,r,m+1,angka(data?data[m]:null),{b:true,fill:XL_WARNA.das}); r++; };
+    const barisSum=(label,data,pct)=>{ xlTulis(ws,r,1,label,{b:true,fill:XL_WARNA.label,h:'left'});
+        for(let m=1;m<=12;m++){ const v=data?data[m]:null;
+            xlTulis(ws,r,m+1,pct?(v!==null&&v!==undefined?parseFloat(v).toFixed(2)+'%':'-'):angka(v),{}); } r++; };
+    const seksi=(teks)=>{ xlGabung(ws,r,1,13,teks,{b:true,fill:XL_WARNA.sect,h:'left'}); r++; };
+
+    seksi('Dasarian:');
+    barisDas('01 - 10',yr.dasarian.das1); barisDas('11 - 20',yr.dasarian.das2); barisDas('21 - 31',yr.dasarian.das3);
+    seksi('Bulanan:');
+    barisSum('Jumlah',yr.monthly.jumlah,false); barisSum('Maks',yr.monthly.maks,false); barisSum('Hr Hujan',yr.monthly.hh,false);
+    seksi('Tahunan:');
+    const ys=yr.yearly_summary||{};
+    xlTulis(ws,r,1,'Jumlah:',{b:true,fill:XL_WARNA.label,h:'left'});
+    xlGabung(ws,r,2,5,`${fmtN(ys.jumlah)} mm`,{b:true,fill:XL_WARNA.thn,h:'left'});
+    xlGabung(ws,r,6,8,`Maksimum: ${fmtN(ys.maks)} mm`,{b:true,fill:XL_WARNA.thn,h:'left'});
+    xlGabung(ws,r,9,13,`Hari Hujan: ${ys.hh||0} hh`,{b:true,fill:XL_WARNA.thn,h:'left'});
+    r++;
+    barisSum('Persentase',yr.monthly.pct,true);
+    xlCatatan(ws,r,XL_LEGENDA,13);
+    return r+3;
 }
 
-function xlsxSheetTahunan(yr,posName){
-    const dim=yr.days_in_month,rows=[];
-    rows.push([`MATRIKS CH HARIAN — ${posName.toUpperCase()} — TAHUN ${yr.tahun}`]);
-    rows.push([]);
-    rows.push(['TGL/BULAN',...BULAN]);
+// Tabel bulanan — gaya header/garis/warna sama dengan matriks
+function xlBlokBulanan(ws,r,data,posName,thn){
+    xlJudul(ws,r,`DATA CURAH HUJAN BULANAN — ${posName.toUpperCase()} — TAHUN ${thn}`,4); r+=2;
+    ['Bulan','Curah Hujan (mm)','Curah Hujan Max (mm)','Hari Hujan (hari)']
+        .forEach((t,i)=>xlTulis(ws,r,i+1,t,{b:true,fill:XL_WARNA.head}));
+    r++;
+    data.months.forEach(row=>{
+        xlTulis(ws,r,1,BULAN_FULL[row.bulan-1],{b:true,fill:XL_WARNA.label,h:'left'});
+        [row.total,row.maks,row.hh].forEach((v,i)=>xlTulis(ws,r,i+2,(v===null||v===undefined)?'-':v,{}));
+        r++;
+    });
+    return r+2;
+}
 
-    function xlsDayRow(d){
-        const row=yr.days.find(r=>r.hari===d)||{};
-        const cells=[d];
-        for(let m=1;m<=12;m++){
-            if(d>(dim[m]||31)){cells.push('');continue;}
-            const raw=row['m'+m];
-            if(raw===null||raw===undefined){cells.push('');continue;}
-            const n=parseFloat(raw);
-            if(isNaN(n)){cells.push('');continue;}
-            if(n===9999||(n>887&&n!==8888)){cells.push('');continue;} // merah ditangani via style
-            if(n===8888){cells.push(0.1);continue;}
-            cells.push(n===0?'-':n);
+function xlNamaSheet(nama,dipakai){
+    const dasar=String(nama).replace(/[\\\/\?\*\[\]:]/g,' ').trim().slice(0,31)||'Pos';
+    let n=dasar,i=2;
+    while(dipakai.has(n.toLowerCase())){ const suf=` (${i++})`; n=dasar.slice(0,31-suf.length)+suf; }
+    dipakai.add(n.toLowerCase());
+    return n;
+}
+function namaFile(t){ return String(t).replace(/[\\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim(); }
+async function xlSimpan(wb,nama){
+    const buf=await wb.xlsx.writeBuffer();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    a.download=namaFile(nama)+'.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+function xlBaru(){ const wb=new ExcelJS.Workbook(); wb.creator='Stamet APT Pranoto - Samarinda'; wb.created=new Date(); return wb; }
+
+async function downloadXlsxTahunan(){
+    if(!currentData||currentMeta.semuaPos) return;
+    const {posName,kabName,tahunAwal,tahunAkhir}=currentMeta;
+    const wb=xlBaru();
+    currentData.forEach(yr=>{
+        const ws=wb.addWorksheet(String(yr.tahun));
+        xlLebarMatriks(ws); xlBlokMatriks(ws,1,yr,posName);
+    });
+    const tl=tahunAwal===tahunAkhir?tahunAwal:`${tahunAwal}-${tahunAkhir}`;
+    await xlSimpan(wb,`MATRIKS CH Harian ${kabName} Tahun ${tl}`);
+}
+
+async function downloadXlsxBulanan(){
+    if(!currentData||currentMeta.semuaPos) return;
+    const {posName,kabName,tahun,bulanAwal,bulanAkhir}=currentMeta;
+    const wb=xlBaru();
+    const ws=wb.addWorksheet(String(tahun));
+    xlLebarBulanan(ws); xlBlokBulanan(ws,1,currentData,posName,tahun);
+    await xlSimpan(wb,`Data CH Bulanan ${kabName} ${tahun} ${BULAN_FULL[bulanAwal-1]}-${BULAN_FULL[bulanAkhir-1]}`);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SEMUA POS — muat semua pos dalam kabupaten, unduh: 1 pos = 1 sheet
+// ══════════════════════════════════════════════════════════════════
+async function ambilBerurutan(daftar,urlFn,onProgress){
+    const hasil=new Array(daftar.length); let next=0,selesai=0;
+    async function kerja(){
+        for(;;){
+            const i=next++; if(i>=daftar.length) return;
+            try{ const j=await fetch(urlFn(daftar[i])).then(r=>r.json()); hasil[i]=(j&&!j.error)?j:null; }
+            catch(e){ hasil[i]=null; }
+            onProgress(++selesai,daftar.length);
         }
-        return cells;
     }
-    function xlsDas(label,data){
-        return [label,...Array.from({length:12},(_,i)=>{const v=data?data[i+1]:null;return(v&&v!==0)?v:'-';})];
-    }
-    function xlsNum(label,data){
-        return [label,...Array.from({length:12},(_,i)=>{const v=data?data[i+1]:null;return(v!==null&&v!==undefined&&v!==0)?v:'-';})];
-    }
-    function xlsPct(label,data){
-        return [label,...Array.from({length:12},(_,i)=>{const v=data?data[i+1]:null;return v!==null&&v!==undefined?parseFloat(v).toFixed(2)+'%':'';})];
-    }
+    await Promise.all(Array.from({length:Math.min(3,daftar.length)},kerja));   // 3 permintaan paralel
+    return hasil;
+}
 
-    for(let d=1;d<=31;d++) rows.push(xlsDayRow(d));
-    rows.push([]);
-    rows.push(['Dasarian:']);
-    rows.push(xlsDas('01 - 10',yr.dasarian.das1));
-    rows.push(xlsDas('11 - 20',yr.dasarian.das2));
-    rows.push(xlsDas('21 - 31',yr.dasarian.das3));
-    rows.push([]);
-    rows.push(['Bulanan:']);
-    rows.push(xlsNum('Jumlah',yr.monthly.jumlah));
-    rows.push(xlsNum('Maks',yr.monthly.maks));
-    rows.push(xlsNum('Hr Hujan',yr.monthly.hh));
-    rows.push([]);
-    const ys=yr.yearly_summary||{};
-    rows.push(['Tahunan:']);
-    rows.push([`Jumlah: ${ys.jumlah||0} mm`,'','','',`Maksimum: ${ys.maks||0} mm`,'','',`Hari Hujan: ${ys.hh||0} hh`]);
-    rows.push(xlsPct('Persentase',yr.monthly.pct));
-    return rows;
+async function tampilkanSemuaPos(mode,p){
+    const tah=mode==='tahunan';
+    const selPos=document.getElementById(tah?'ta-pos':'bu-pos');
+    const kabName=document.getElementById(tah?'ta-kab':'bu-kab').selectedOptions[0].text;
+    const semua=[...selPos.options].filter(o=>o.value&&o.value!=='all').map(o=>({id:o.value,nama:o.text}));
+
+    // Sesuaikan periode tiap pos dengan ketersediaan datanya
+    const aktif=[],dilewati=[];
+    semua.forEach(ps=>{
+        const th=RD.tahun('',ps.id);            // null = info rentang tidak tersedia -> ambil apa adanya
+        if(tah){
+            const a=th&&th.length?Math.max(p.tA,th[0]):p.tA, b=th&&th.length?Math.min(p.tB,th[th.length-1]):p.tB;
+            if((th&&!th.length)||a>b){ dilewati.push(ps.nama); return; }
+            ps.tA=a; ps.tB=b;
+        }else if(th&&!th.includes(p.thn)){ dilewati.push(ps.nama); return; }
+        aktif.push(ps);
+    });
+    if(!aktif.length) return showError('Tidak ada pos yang memiliki data pada periode ini.');
+
+    setLoading();
+    const ex=document.getElementById('annual-summary-section'); if(ex) ex.remove();
+    document.getElementById('pos-info-box').style.display='none';
+    const out=document.getElementById('main-output');
+    const url=tah
+        ? ps=>`/api/analisis/matriks?kecamatan_id=${ps.id}&tahun_awal=${ps.tA}&tahun_akhir=${ps.tB}`
+        : ps=>`/api/analisis/bulanan?kecamatan_id=${ps.id}&tahun=${p.thn}&bulan_awal=${p.bA}&bulan_akhir=${p.bB}`;
+    const hasil=await ambilBerurutan(aktif,url,(n,t)=>{
+        out.innerHTML=`<div class="state-box"><p>⏳ Memuat data pos ${n} / ${t}...</p></div>`;
+    });
+
+    const berhasil=[],gagal=[];
+    aktif.forEach((ps,i)=>{ if(hasil[i]) berhasil.push({nama:ps.nama,data:hasil[i]}); else gagal.push(ps.nama); });
+    if(!berhasil.length) return showError('Data gagal dimuat. Silakan coba lagi.');
+
+    currentData={pos:berhasil};
+    currentMeta=tah?{semuaPos:true,mode,kabName,tahunAwal:p.tA,tahunAkhir:p.tB}
+                   :{semuaPos:true,mode,kabName,tahun:p.thn,bulanAwal:p.bA,bulanAkhir:p.bB};
+    const periode=tah?(p.tA===p.tB?`Tahun ${p.tA}`:`Tahun ${p.tA}–${p.tB}`)
+                     :`${BULAN_FULL[p.bA-1]}–${BULAN_FULL[p.bB-1]} ${p.thn}`;
+    const chip=(n,c)=>`<span class="sp-chip${c?' '+c:''}">${esc(n)}</span>`;
+    out.innerHTML=`<div class="semua-pos-box">
+        <h4>📦 Semua Pos — ${esc(kabName)}</h4>
+        <p>${berhasil.length} pos siap diunduh · ${periode}. Setiap pos menjadi satu sheet pada file Excel.</p>
+        <div class="sp-chips">${berhasil.map(b=>chip(b.nama)).join('')}
+            ${dilewati.map(n=>chip(n+' (tanpa data pada periode ini)','skip')).join('')}
+            ${gagal.map(n=>chip(n+' (gagal dimuat)','fail')).join('')}</div>
+    </div>`;
+    const bar=document.getElementById('download-bar');
+    bar.innerHTML='<button class="btn-dl btn-dl-xlsx" onclick="downloadXlsxSemuaPos()">⬇ Unduh XLSX (Semua Pos)</button>';
+    bar.style.display='flex';
+}
+
+async function downloadXlsxSemuaPos(){
+    if(!currentData||!currentMeta.semuaPos) return;
+    const m=currentMeta, wb=xlBaru(), dipakai=new Set();
+    currentData.pos.forEach(ps=>{
+        const ws=wb.addWorksheet(xlNamaSheet(ps.nama,dipakai));
+        if(m.mode==='tahunan'){
+            xlLebarMatriks(ws);
+            let r=1; ps.data.years.forEach(yr=>{ r=xlBlokMatriks(ws,r,yr,ps.nama); });
+        }else{
+            xlLebarBulanan(ws); xlBlokBulanan(ws,1,ps.data,ps.nama,m.tahun);
+        }
+    });
+    const nama=m.mode==='tahunan'
+        ? `MATRIKS CH Harian Semua Pos ${m.kabName} Tahun ${m.tahunAwal===m.tahunAkhir?m.tahunAwal:m.tahunAwal+'-'+m.tahunAkhir}`
+        : `Data CH Bulanan Semua Pos ${m.kabName} ${m.tahun} ${BULAN_FULL[m.bulanAwal-1]}-${BULAN_FULL[m.bulanAkhir-1]}`;
+    await xlSimpan(wb,nama);
 }
 
 // ══════════════════════════════════════════════════════════════════
 //  DOWNLOAD — TAHUNAN PDF
 // ══════════════════════════════════════════════════════════════════
 function downloadPdfTahunan(){
-    if(!currentData) return;
+    if(!currentData||currentMeta.semuaPos) return;
+    segarHariIni();
     const {jsPDF}=window.jspdf;
     const {posName,kabName,tahunAwal,tahunAkhir}=currentMeta;
     const now=new Date();
@@ -906,18 +1133,9 @@ function buildPdfPageTahunan(doc,yr,posName,ts,pageNum,total){
         const cells=[{content:String(d),styles:LS}];
         for(let m=1;m<=12;m++){
             if(d>(yr.days_in_month[m]||31)){cells.push({content:'',styles:{fillColor:[242,242,242],fontSize:FS}});continue;}
-            const raw=row['m'+m];
-            let dv='', fill=WH;
-            if(raw!==null&&raw!==undefined){
-                const n=parseFloat(raw);
-                if(!isNaN(n)){
-                    if(n===9999||(n>887&&n!==8888)){dv='';fill=RED;}
-                    else if(n===8888){dv='0.1';}
-                    else if(n===0){dv='-';}
-                    else dv=n%1===0?String(n):parseFloat(n.toFixed(1)).toString();
-                }
-            }
-            cells.push({content:dv,styles:{fillColor:fill,fontSize:FS,halign:'center'}});
+            const c=cellMatrix(row['m'+m],yr.tahun,m,d);
+            cells.push({content:c.v,styles:{fillColor:c.kind==='X'?RED:WH,textColor:c.kind==='X'?[192,57,43]:[0,0,0],
+                        fontStyle:c.kind==='X'?'bold':'normal',fontSize:FS,halign:'center'}});
         }
         return cells;
     }
@@ -965,7 +1183,8 @@ function buildPdfPageTahunan(doc,yr,posName,ts,pageNum,total){
         margin:{left:4,right:4,bottom:9}
     });
     doc.setFontSize(6.5);doc.setFont(undefined,'normal');
-    doc.text('Stasiun Meteorologi APT Pranoto - Samarinda',PW/2,PH-3,{align:'center'});
+    doc.text('Satuan: mm | X (9999): data tidak valid | 8888: tidak terukur (CH<0,5) | -: belum terisi',4,PH-3);
+    doc.text('Stasiun Meteorologi APT Pranoto - Samarinda',PW/2+25,PH-3,{align:'center'});
     doc.text(`Hal. ${pageNum}/${total}`,PW-4,PH-3,{align:'right'});
 }
 
@@ -997,13 +1216,25 @@ async function downloadTabelPng(){
 }
 
 async function downloadGrafikPng(){
-    const canvas=document.getElementById('ch-bar-chart');
-    if(!canvas) return;
     const a=document.createElement('a');
-    a.href=canvas.toDataURL('image/png');
-    const bulan=document.getElementById('chart-bulan-sel')?.value||'';
-    const bName=bulan?BULAN_FULL[parseInt(bulan)-1]:'';
-    a.download=`Grafik_CH_${bName}_${currentMeta.tahun}_${currentMeta.posName}.png`;
+    const meta=currentMeta||{};
+    if(modeSemuaBulan && chartsAll.length){
+        const cvs=chartsAll.map(c=>c.canvas), cols=2;
+        const cw=Math.max(...cvs.map(c=>c.width)), ch=Math.max(...cvs.map(c=>c.height));
+        const rows=Math.ceil(cvs.length/cols), pad=16;
+        const out=document.createElement('canvas');
+        out.width=cols*cw+(cols+1)*pad; out.height=rows*ch+(rows+1)*pad;
+        const g=out.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,out.width,out.height);
+        cvs.forEach((c,i)=>g.drawImage(c,pad+(i%cols)*(cw+pad),pad+Math.floor(i/cols)*(ch+pad)));
+        a.href=out.toDataURL('image/png');
+        a.download=`Grafik_CH_Seluruh_Bulan_${meta.tahun}_${meta.posName}.png`;
+    }else{
+        const canvas=document.getElementById('ch-bar-chart');
+        if(!canvas) return;
+        const bulan=document.getElementById('chart-bulan-sel')?.value||'';
+        a.href=canvas.toDataURL('image/png');
+        a.download=`Grafik_CH_${bulan?BULAN_FULL[parseInt(bulan)-1]:''}_${meta.tahun}_${meta.posName}.png`;
+    }
     a.click();
 }
 
@@ -1017,30 +1248,10 @@ async function loadHtml2Canvas(){
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  DOWNLOAD — BULANAN XLSX
-// ══════════════════════════════════════════════════════════════════
-function downloadXlsxBulanan(){
-    if(!currentData) return;
-    const {posName,kabName,tahun,bulanAwal,bulanAkhir}=currentMeta;
-    const wb=XLSX.utils.book_new();
-    const rows=[
-        [`Data Curah Hujan Bulanan — ${posName.toUpperCase()} — Tahun ${tahun}`],[],
-        ['Bulan','Curah Hujan (mm)','Curah Hujan Max (mm)','Hari Hujan (hari)']
-    ];
-    currentData.months.forEach(row=>{
-        rows.push([BULAN_FULL[row.bulan-1], row.total??'-', row.maks??'-', row.hh??'-']);
-    });
-    const ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:14},{wch:20},{wch:22},{wch:18}];
-    const bAName=BULAN_FULL[bulanAwal-1];const bBName=BULAN_FULL[bulanAkhir-1];
-    XLSX.utils.book_append_sheet(wb,ws,`${tahun}`);
-    XLSX.writeFile(wb,`Data CH Bulanan ${kabName} ${tahun} ${bAName}-${bBName}.xlsx`);
-}
-
-// ══════════════════════════════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════════════════════════════
 init();
 </script>
+{% include 'partials/chat_widget.html' %}
 </body>
 </html>

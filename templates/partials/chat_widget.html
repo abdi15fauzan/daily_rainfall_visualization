@@ -1,0 +1,310 @@
+<!-- templates/partials/chat_widget.html -->
+<!-- Widget asisten AI wijithukul. Sisipkan include partial ini sebelum penutup body,
+     di index.html, peta-interaktif.html, visualisasi.html, dan ui.html/analisis.html -->
+<style>
+  #wijithukul-launcher {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #2c3e50;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 20px 12px 14px;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,.25);
+    transition: transform .15s ease, background .2s ease;
+  }
+  #wijithukul-launcher:hover { background: #3498db; transform: translateY(-2px); }
+  #wijithukul-launcher svg { width: 22px; height: 22px; flex-shrink: 0; }
+  #wijithukul-launcher.wijithukul-hidden { display: none; }
+
+  #wijithukul-panel {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    height: 560px;
+    max-height: calc(100vh - 40px);
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  #wijithukul-panel.wijithukul-open { display: flex; }
+
+  #wijithukul-header {
+    background: #2c3e50;
+    color: #fff;
+    padding: 16px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  #wijithukul-header-title { display: flex; flex-direction: column; gap: 4px; }
+  #wijithukul-header-title strong { font-size: 15px; }
+  #wijithukul-header-sub { font-size: 11.5px; color: #b8c4cf; }
+  #wijithukul-close-btn {
+    background: transparent; border: none; color: #fff; font-size: 22px;
+    cursor: pointer; line-height: 1; padding: 4px;
+  }
+
+  #wijithukul-mode-badge {
+    display: inline-block; font-size: 10.5px; font-weight: 700;
+    padding: 2px 9px; border-radius: 10px; margin-top: 2px; width: fit-content;
+  }
+  #wijithukul-mode-badge.wijithukul-badge-publik { background: #eaf4fd; color: #3498db; }
+  #wijithukul-mode-badge.wijithukul-badge-admin { background: #eafbea; color: #27ae60; }
+
+  #wijithukul-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: #f4f7f6;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .wijithukul-msg { max-width: 85%; padding: 10px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.45; white-space: pre-wrap; }
+  .wijithukul-msg-user { align-self: flex-end; background: #3498db; color: #fff; border-bottom-right-radius: 3px; }
+  .wijithukul-msg-bot { align-self: flex-start; background: #fff; color: #2c3e50; border: 1px solid #e1e4e8; border-bottom-left-radius: 3px; }
+  .wijithukul-msg-bot.wijithukul-loading { color: #999; font-style: italic; }
+
+  .wijithukul-chart-wrap { margin-top: 10px; background: #fff; border-radius: 8px; padding: 8px; }
+  .wijithukul-chart-wrap canvas { max-width: 100%; }
+
+  #wijithukul-input-row {
+    display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e1e4e8; background: #fff; flex-shrink: 0;
+  }
+  #wijithukul-input {
+    flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 9px 14px;
+    font-size: 13.5px; outline: none; font-family: inherit;
+  }
+  #wijithukul-input:focus { border-color: #3498db; }
+  #wijithukul-send-btn {
+    background: #2c3e50; color: #fff; border: none; border-radius: 50%;
+    width: 38px; height: 38px; flex-shrink: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: background .2s;
+  }
+  #wijithukul-send-btn:hover { background: #3498db; }
+  #wijithukul-send-btn:disabled { background: #bbb; cursor: not-allowed; }
+
+  /* Mobile: panel jadi hampir layar penuh */
+  @media (max-width: 480px) {
+    #wijithukul-panel {
+      width: 100vw;
+      max-width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      bottom: 0;
+      right: 0;
+      border-radius: 0;
+    }
+    #wijithukul-launcher span.wijithukul-launcher-label { display: none; }
+    #wijithukul-launcher { padding: 14px; }
+  }
+</style>
+
+<button id="wijithukul-launcher" onclick="wijithukulToggle()" aria-label="Buka asisten mas Giler">
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M21 11.5C21 16.75 16.75 21 11.5 21C10.11 21 8.79 20.7 7.61 20.15L3 21L4.15 16.61C3.3 15.19 3 13.6 3 12C3 6.75 7.25 2.5 12.5 2.5C17.47 2.53 21 6.75 21 11.5Z"
+      stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="wijithukul-launcher-label">Ayo Tanya Mas Giler</span>
+</button>
+
+<div id="wijithukul-panel">
+  <div id="wijithukul-header">
+    <div id="wijithukul-header-title">
+      <strong>Mas Giler &mdash; Asisten Curah Hujan</strong>
+      <span id="wijithukul-header-sub">BMKG Kalimantan Timur</span>
+      <span id="wijithukul-mode-badge" class="wijithukul-badge-publik" style="display:none;"></span>
+    </div>
+    <button id="wijithukul-close-btn" onclick="wijithukulToggle()" aria-label="Tutup">&times;</button>
+  </div>
+
+  <div id="wijithukul-messages"></div>
+
+  <div id="wijithukul-input-row">
+    <input id="wijithukul-input" type="text" placeholder="Tanya soal curah hujan..." autocomplete="off">
+    <button id="wijithukul-send-btn" onclick="wijithukulSend()" aria-label="Kirim">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  let wijithukulHistory = [];
+  let wijithukulOpen = false;
+  let wijithukulBusy = false;
+
+  window.wijithukulToggle = function () {
+    wijithukulOpen = !wijithukulOpen;
+    document.getElementById('wijithukul-panel').classList.toggle('wijithukul-open', wijithukulOpen);
+    document.getElementById('wijithukul-launcher').classList.toggle('wijithukul-hidden', wijithukulOpen);
+    if (wijithukulOpen && document.getElementById('wijithukul-messages').children.length === 0) {
+      wijithukulAddBotBubble('Hai Kawan! Aku Mas Giler, asisten informasi data curah hujan Kalimantan Timur. Enjoy to be asked :), tanyakan misalnya "berapa curah hujan di lempake hari ini?"', null);
+    }
+    if (wijithukulOpen) document.getElementById('wijithukul-input').focus();
+  };
+
+  function wijithukulAddUserBubble(text) {
+    const el = document.createElement('div');
+    el.className = 'wijithukul-msg wijithukul-msg-user';
+    el.textContent = text;
+    document.getElementById('wijithukul-messages').appendChild(el);
+    wijithukulScrollBottom();
+  }
+
+  function wijithukulAddBotBubble(text, chartSpec) {
+    const el = document.createElement('div');
+    el.className = 'wijithukul-msg wijithukul-msg-bot';
+    el.textContent = text;
+    document.getElementById('wijithukul-messages').appendChild(el);
+
+    if (chartSpec) {
+      const wrap = document.createElement('div');
+      wrap.className = 'wijithukul-chart-wrap';
+      const canvas = document.createElement('canvas');
+      wrap.appendChild(canvas);
+      document.getElementById('wijithukul-messages').appendChild(wrap);
+      wijithukulRenderChart(canvas, chartSpec);
+    }
+    wijithukulScrollBottom();
+  }
+
+  function wijithukulScrollBottom() {
+    const box = document.getElementById('wijithukul-messages');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function wijithukulParseReply(replyText) {
+    const marker = 'CHART_SPEC:';
+    const idx = (replyText || '').indexOf(marker);
+    if (idx === -1) return { text: replyText || '', chart: null };
+    const textPart = replyText.slice(0, idx).trim();
+    const jsonPart = replyText.slice(idx + marker.length).trim();
+    try {
+      return { text: textPart, chart: JSON.parse(jsonPart) };
+    } catch (e) {
+      return { text: replyText, chart: null };
+    }
+  }
+
+  function wijithukulRenderChart(canvas, spec) {
+    try {
+      new Chart(canvas.getContext('2d'), {
+        type: spec.type || 'bar',
+        data: {
+          labels: spec.labels || [],
+          datasets: [{
+            label: spec.title || 'Curah Hujan (mm)',
+            data: spec.data || [],
+            backgroundColor: '#3498db',
+            borderColor: '#2c3e50',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: !!spec.title, text: spec.title || '' }
+          },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    } catch (e) {
+      console.error('Gagal render chart wijithukul:', e);
+    }
+  }
+
+  function wijithukulSetModeBadge(mode) {
+    const badge = document.getElementById('wijithukul-mode-badge');
+    badge.style.display = 'inline-block';
+    if (mode === 'admin') {
+      badge.textContent = 'Mode Admin \u2014 akses penuh';
+      badge.className = 'wijithukul-badge-admin';
+    } else {
+      badge.textContent = 'Mode Publik \u2014 data terbatas';
+      badge.className = 'wijithukul-badge-publik';
+    }
+  }
+
+  function wijithukulSetBusy(busy) {
+    wijithukulBusy = busy;
+    document.getElementById('wijithukul-send-btn').disabled = busy;
+    document.getElementById('wijithukul-input').disabled = busy;
+  }
+
+  window.wijithukulSend = async function () {
+    if (wijithukulBusy) return;
+    const input = document.getElementById('wijithukul-input');
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = '';
+
+    wijithukulAddUserBubble(message);
+    wijithukulHistory.push({ role: 'user', content: message });
+    wijithukulSetBusy(true);
+
+    const loadingEl = document.createElement('div');
+    loadingEl.className = 'wijithukul-msg wijithukul-msg-bot wijithukul-loading';
+    loadingEl.textContent = 'mas Giler sedang menggodok...';
+    document.getElementById('wijithukul-messages').appendChild(loadingEl);
+    wijithukulScrollBottom();
+
+    try {
+      const res = await fetch('/api/assistant/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message, history: wijithukulHistory.slice(-6) })
+      });
+      const data = await res.json();
+      loadingEl.remove();
+
+      if (data.error) {
+        wijithukulAddBotBubble(data.error, null);
+      } else {
+        wijithukulSetModeBadge(data.mode);
+        const parsed = wijithukulParseReply(data.reply);
+        wijithukulAddBotBubble(parsed.text, parsed.chart);
+        wijithukulHistory.push({ role: 'assistant', content: data.reply });
+      }
+    } catch (err) {
+      loadingEl.remove();
+      wijithukulAddBotBubble('Maaf, terjadi kesalahan koneksi ke server. Coba lagi sebentar.', null);
+    } finally {
+      wijithukulSetBusy(false);
+      input.focus();
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('wijithukul-input');
+    if (input) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !wijithukulBusy) wijithukulSend();
+      });
+    }
+  });
+})();
+</script>

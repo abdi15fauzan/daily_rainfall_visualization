@@ -6,3 +6,4 @@ requests
 urllib3
 gunicorn
 python-dotenv
+groq

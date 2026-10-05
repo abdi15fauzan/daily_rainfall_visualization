@@ -2,7 +2,7 @@ from flask import Flask, render_template, jsonify, request, session, redirect, u
 from sqlalchemy import create_engine, text
 import pandas as pd
 import json
-from datetime import datetime
+from datetime import datetime, date
 import requests
 import concurrent.futures
 import urllib3
@@ -10,6 +10,18 @@ import os
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+from services.curah_hujan import (
+    get_daftar_kabupaten, get_daftar_pos, get_data_bulanan, batasi_rentang_bulan,
+    get_curah_hujan_harian, dalam_batas_publik, rentang_publik_harian,
+    get_statistik_curah_hujan, potong_rentang_publik,
+    get_statistik_wilayah, get_akumulasi_hari_hujan, get_data_dasarian,
+    get_curah_hujan_harian_wilayah, get_perbandingan_pos_wilayah, get_dasarian_wilayah,
+    get_rentang_data,
+)
+from tools_schema import TOOLS
+from groq import Groq, RateLimitError, APIError
+import time
+import calendar
 
 # Muat variabel dari file .env (hanya aktif di lokal, tidak pengaruhi Vercel)
 load_dotenv()
@@ -33,8 +45,8 @@ if not DB_URI or not DB_URI_2:
     raise RuntimeError("DATABASE_URL dan DATABASE_URL_2 harus di-set di environment variables!")
 
 
-engine = create_engine(DB_URI, client_encoding='utf8')
-engine2 = create_engine(DB_URI_2, client_encoding='utf8')
+engine = create_engine(DB_URI, client_encoding='utf8', pool_pre_ping=True, pool_recycle=280)
+engine2 = create_engine(DB_URI_2, client_encoding='utf8', pool_pre_ping=True, pool_recycle=280)
 
 # ==============================================================================
 # KONFIGURASI LOGIN (untuk halaman Visualisasi & Analisis — khusus admin)
@@ -50,6 +62,13 @@ DEFAULT_HASH = generate_password_hash('ganti_password_ini_di_env_vercel')
 
 # Vercel akan otomatis mengambil nilai hash asli dari Environment Variable
 ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH', DEFAULT_HASH)
+
+
+def _galat(e, kode=500):
+    """Catat detail error HANYA di log server; klien menerima pesan generik
+    (tanpa nama tabel, query, atau stack trace)."""
+    app.logger.exception("Kesalahan internal: %s", type(e).__name__)
+    return jsonify({'error': 'Data tidak dapat dimuat saat ini. Silakan coba lagi.'}), kode
 
 
 def login_required(f):
@@ -114,14 +133,7 @@ def analisis():
 @app.route('/api/viz/wilayah')
 @login_required
 def viz_wilayah():
-    try:
-        with engine2.connect() as conn:
-            df = pd.read_sql(
-                "SELECT id_wilayah, nama_wilayah FROM wilayah WHERE tipe='KABUPATEN' AND aktif=true ORDER BY nama_wilayah",
-                conn)
-        return jsonify(df.to_dict(orient='records'))
-    except Exception as e:
-        return jsonify({'error': str(e)})
+    return jsonify(get_daftar_kabupaten(engine2))
 
 @app.route('/api/viz/pos')
 @login_required
@@ -136,7 +148,7 @@ def viz_pos():
                 df = pd.read_sql("SELECT id_kecamatan, nama_kecamatan FROM kecamatan WHERE aktif=true ORDER BY nama_kecamatan", conn)
         return jsonify(df.to_dict(orient='records'))
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 @app.route('/api/viz/tahun')
 @login_required
@@ -146,7 +158,16 @@ def viz_tahun():
             df = pd.read_sql("SELECT DISTINCT tahun FROM curah_hujan_harian ORDER BY tahun DESC", conn)
         return jsonify(df['tahun'].tolist())
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
+
+@app.route('/api/viz/rentang')
+@login_required
+def viz_rentang():
+    """Rentang ketersediaan data (bulan awal & akhir valid) per pos."""
+    try:
+        return jsonify({'d': get_rentang_data(engine2)})
+    except Exception as e:
+        return _galat(e)
 
 @app.route('/api/viz/data-kabupaten')
 @login_required
@@ -229,7 +250,7 @@ def viz_data_kabupaten():
 
         return jsonify(df.fillna(0).to_dict(orient='records'))
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 @app.route('/api/viz/tahunan-summary')
 @login_required
@@ -349,7 +370,7 @@ def viz_tahunan_summary():
                 return jsonify({'mode': 'provinsi', 'entities': entities})
 
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 
 @app.route('/api/viz/dekade-summary')
@@ -358,7 +379,7 @@ def viz_dekade_summary():
     """
     10-year (dekade) aggregates.
     tahun_awal: start year. period = tahun_awal to tahun_awal+9
-    Validation: tahun_awal > 2018 → invalid; missing years → flag warning
+    Validation: tahun_awal di luar rentang data → invalid; missing years → flag warning
     Modes:
       kecamatan_id → per pos (all metrics + stats)
       wilayah_id   → per-pos aggregate within kab
@@ -371,8 +392,15 @@ def viz_dekade_summary():
     tahun_akhir  = tahun_awal + 9
     tahun_range  = list(range(tahun_awal, tahun_akhir + 1))
 
-    if tahun_awal > 2018:
-        return jsonify({'error': f'Periode mulai {tahun_awal} tidak valid. Gunakan tahun awal ≤ 2018.'})
+    try:
+        rentang_global = get_rentang_data(engine2)
+    except Exception as e:
+        return _galat(e)
+    if rentang_global:
+        thn_min = min(r['a'] for r in rentang_global) // 100
+        thn_max = max(r['b'] for r in rentang_global) // 100
+        if tahun_awal < thn_min or tahun_awal > thn_max:
+            return jsonify({'error': 'Tahun awal berada di luar rentang data yang tersedia.'})
 
     def safe(v):
         try:
@@ -562,7 +590,7 @@ def viz_dekade_summary():
                 })
 
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 
 @app.route('/api/viz/data-pos')
@@ -613,7 +641,7 @@ def viz_data_pos():
             'dasarian': df_das.fillna(0).to_dict(orient='records')
         })
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 # ==============================================================================
 # API 1: DATA CUACA BMKG
@@ -735,7 +763,7 @@ def get_dashboard_data():
             "monthly": df_monthly.to_dict(orient='records')
         })
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 # ==============================================================================
 # API 3: DATA INTERAKTIF (PERBAIKAN PENGELOMPOKAN DATA)
@@ -813,7 +841,7 @@ def get_interactive_data():
             "das_map": df_das_map.to_dict(orient='records')   # Untuk Peta DAS
         })
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 # ==============================================================================
 # TAMBAHKAN KODE INI KE app.py — SEBELUM BARIS: if __name__ == '__main__':
@@ -1000,7 +1028,7 @@ def analisis_matriks():
         return jsonify({'years': years_result})
 
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
     
 # ==============================================================================
 
@@ -1100,7 +1128,7 @@ def analisis_bulanan():
         })
 
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 @app.route('/api/analisis/pos-info')
 @login_required
@@ -1130,7 +1158,7 @@ def analisis_pos_info():
             'bujur': float(row['bujur']) if row['bujur'] is not None else None
         })
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return _galat(e)
 
 # ==============================================================================
 # API CONFIG — Kirim PETA_CSV_URL ke frontend (tanpa expose ke source HTML)
@@ -1139,6 +1167,209 @@ def analisis_pos_info():
 def get_peta_csv_url():
     return jsonify({'url': PETA_CSV_URL})
 
+# ================== AI ASSISTANT (Tahap 2) ==================
+groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
+
+_REF_DATA_CACHE = {"teks_lookup": "", "loaded_at": None}
+
+def muat_referensi_wilayah():
+    kabupaten_list = get_daftar_kabupaten(engine2)
+    baris = []
+    for kab in kabupaten_list:
+        pos_list = get_daftar_pos(engine2, kab['id_wilayah'])
+        nama_pos = ", ".join(f"{p['nama_kecamatan']}(id={p['id_kecamatan']})" for p in pos_list)
+        baris.append(f"- {kab['nama_wilayah']}: {nama_pos}")
+    _REF_DATA_CACHE["teks_lookup"] = "\n".join(baris)
+    _REF_DATA_CACHE["loaded_at"] = datetime.now()
+
+muat_referensi_wilayah()
+
+
+def build_system_prompt(is_logged_in):
+    ref_text = _REF_DATA_CACHE["teks_lookup"]
+    hari_ini = date.today().isoformat()
+    base = (
+        "Kamu asisten data curah hujan Kalimantan Timur (BMKG Samarinda). "
+        "Berikut daftar kabupaten dan pos hujan beserta id_kecamatan-nya \u2014 GUNAKAN LANGSUNG id ini, "
+        "JANGAN panggil get_daftar_kabupaten/get_daftar_pos kecuali nama tidak ada di daftar ini:\n"
+        "DASARIAN: DAS1=tanggal 1-10, DAS2=tanggal 11-20, DAS3=tanggal 21-akhir bulan. "
+        "Untuk pertanyaan dasarian/DAS1/DAS2/DAS3 SATU pos, gunakan get_data_dasarian. "
+        "Untuk dasarian SEMUA pos dalam satu kabupaten sekaligus, gunakan get_dasarian_wilayah. "
+        "Untuk perbandingan SATU pos dengan rata-rata wilayahnya (di atas/di bawah rata-rata), gunakan get_perbandingan_pos_wilayah. "
+        "Untuk pertanyaan level KABUPATEN/KOTA (gabungan semua pos), gunakan get_statistik_wilayah \u2014 "
+        "JANGAN panggil get_statistik_curah_hujan berkali-kali untuk tiap pos secara manual. "
+        "Untuk total/akumulasi curah hujan lintas-bulan/tahun, WAJIB gunakan get_statistik_curah_hujan(metrik=total) \u2014 "
+        "JANGAN menjumlahkan sendiri angka dari beberapa hasil get_data_curah_hujan_bulanan, kamu sering salah hitung. "
+        "Untuk jumlah hari hujan/tidak hujan lintas-bulan, WAJIB gunakan get_akumulasi_hari_hujan, jangan jumlah manual. "
+        "Nama wilayah di daftar referensi mungkin tanpa prefiks 'Kota'/'Kabupaten' (misal 'SAMARINDA' untuk 'Kota Samarinda') \u2014 "
+        "cocokkan berdasarkan nama initinya, abaikan prefiks tersebut. "
+        f"{ref_text}\n\n"
+        "Gunakan get_curah_hujan_harian untuk SATU tanggal spesifik SATU pos. "
+        "Gunakan get_curah_hujan_harian_wilayah untuk 'semua/seluruh data curah hujan di [kabupaten/kota]' pada SATU tanggal "
+        "(daftar tiap pos beserta nilainya, BUKAN dirata-ratakan). "
+        "Gunakan get_data_curah_hujan_bulanan untuk ringkasan bulan. "
+        "Gunakan get_statistik_curah_hujan untuk rata-rata/total/maksimum/minimum/modus/std_dev/kurtosis satu pos \u2014 JANGAN hitung sendiri. "
+        "ATURAN DATA: kode 9999 tidak valid (dikecualikan dari perhitungan), kode 8888 valid dianggap 0,0mm. "
+        "ATURAN RATA-RATA: satu pos = total nilai valid \u00f7 jumlah hari data valid. Kabupaten = rata-rata dari rata-rata tiap pos di dalamnya. "
+        "Provinsi/seluruh Kaltim = rata-rata dari rata-rata tiap kabupaten (bobot sama per kabupaten). "
+        "PENTING: kalau pertanyaan TIDAK menyebut nama pos/kabupaten/provinsi sama sekali dan tidak jelas dari histori percakapan sebelumnya, "
+        "TANYAKAN dulu lokasi yang dimaksud ke user \u2014 JANGAN menebak atau memilih lokasi sendiri. "
+        "TAPI kalau user SUDAH menyebut nama lokasi (misal 'Balikpapan') dan kamu belum tahu id-nya, JANGAN tanya ID ke user \u2014 "
+        "user tidak tahu dan tidak perlu tahu soal id_wilayah/id_kecamatan. Panggil get_daftar_kabupaten atau get_daftar_pos SENDIRI untuk mencarinya. "
+        "Jawab singkat, hanya berdasarkan hasil tool call, jangan mengarang angka."
+    )
+    if is_logged_in:
+        return base + " Kamu punya akses penuh ke seluruh data historis."
+    return base + (
+        " PENTING: pengguna belum login. Ringkasan bulanan dibatasi ke bulan berjalan. "
+        "Data harian & statistik dibatasi H-30 s.d. hari ini. Sarankan login untuk akses penuh."
+    )
+
+
+CHART_INSTRUCTION = (
+    " Kalau jawabanmu berisi data numerik yang bisa divisualisasikan, sertakan JSON di baris terakhir "
+    "dengan format persis: CHART_SPEC: {\"type\":\"bar\",\"labels\":[...],\"data\":[...],\"title\":\"...\"}"
+)
+
+
+def panggil_groq_dengan_retry(messages, tools, max_retry=2):
+    for percobaan in range(max_retry + 1):
+        try:
+            return groq_client.chat.completions.create(
+                model="openai/gpt-oss-20b", messages=messages,
+                tools=tools, tool_choice="auto", max_tokens=1024, reasoning_effort="low"
+            )
+        except RateLimitError:
+            if percobaan == max_retry:
+                return None
+            time.sleep(2 ** percobaan)
+        except APIError:
+            if percobaan == max_retry:
+                return None
+            time.sleep(1)
+
+
+@app.route('/api/assistant/chat', methods=['POST'])
+def assistant_chat():
+    is_logged_in = bool(session.get('logged_in'))
+    body = request.get_json()
+    user_message = body.get('message', '')
+    history = body.get('history', [])[-6:]
+
+    system_prompt = build_system_prompt(is_logged_in) + CHART_INSTRUCTION
+    messages = [{"role": "system", "content": system_prompt}] + history + [
+        {"role": "user", "content": user_message}
+    ]
+
+    try:
+        for _ in range(4):
+            response = panggil_groq_dengan_retry(messages, TOOLS)
+            if response is None:
+                return jsonify({"error": "Sistem AI sedang sibuk, coba lagi sebentar."}), 503
+
+            msg = response.choices[0].message
+            if not msg.tool_calls:
+                reply_text = msg.content or "Maaf, saya tidak bisa merangkum jawabannya. Coba ajukan pertanyaan yang lebih spesifik."
+                return jsonify({"reply": reply_text, "mode": "admin" if is_logged_in else "publik"})
+
+            messages.append(msg)
+            for call in msg.tool_calls:
+                fn_name = call.function.name
+                fn_args = json.loads(call.function.arguments)
+                # Jaring pengaman: kalau ada nama tool yang lolos tanpa dikenali di bawah,
+                # result tetap terisi (mencegah UnboundLocalError / "referenced before assignment").
+                result = {"error": f"Tool '{fn_name}' tidak berhasil diproses.", "parameter": fn_args}
+
+                if fn_name == "get_daftar_kabupaten":
+                    result = get_daftar_kabupaten(engine2)
+                elif fn_name == "get_daftar_pos":
+                    result = get_daftar_pos(engine2, fn_args.get('wilayah_id'))
+                elif fn_name == "get_data_curah_hujan_bulanan":
+                    tahun, ba, bb = batasi_rentang_bulan(
+                        is_logged_in, fn_args['tahun'],
+                        fn_args.get('bulan_awal', 1), fn_args.get('bulan_akhir', 12)
+                    )
+                    result = get_data_bulanan(engine2, fn_args['kecamatan_id'], tahun, ba, bb)
+                elif fn_name == "get_curah_hujan_harian":
+                    tgl = date(fn_args['tahun'], fn_args['bulan'], fn_args['hari'])
+                    if not dalam_batas_publik(is_logged_in, tgl):
+                        awal, akhir = rentang_publik_harian()
+                        result = {"tersedia": False, "pesan": f"Pengguna belum login hanya bisa akses data {awal.isoformat()} s.d. {akhir.isoformat()}. Login untuk akses penuh."}
+                    else:
+                        result = get_curah_hujan_harian(engine2, fn_args['kecamatan_id'], tgl.year, tgl.month, tgl.day)
+                elif fn_name == "get_statistik_curah_hujan":
+                    tgl_awal = date.fromisoformat(fn_args['tanggal_awal'])
+                    tgl_akhir = date.fromisoformat(fn_args['tanggal_akhir'])
+                    hasil_potong = potong_rentang_publik(is_logged_in, tgl_awal, tgl_akhir)
+                    if hasil_potong is None:
+                        result = {"tersedia": False, "pesan": "Seluruh rentang di luar batas akses publik (H-30 s.d. hari ini). Login untuk akses penuh."}
+                    else:
+                        ta, tb, dipotong = hasil_potong
+                        result = get_statistik_curah_hujan(engine2, fn_args['kecamatan_id'], ta, tb, fn_args['metrik'])
+                        if dipotong:
+                            result['catatan'] = f"Rentang dipotong ke {ta.isoformat()} - {tb.isoformat()} karena belum login."
+
+                elif fn_name == "get_statistik_wilayah":
+                    tgl_awal = date.fromisoformat(fn_args['tanggal_awal'])
+                    tgl_akhir = date.fromisoformat(fn_args['tanggal_akhir'])
+                    hasil_potong = potong_rentang_publik(is_logged_in, tgl_awal, tgl_akhir)
+                    if hasil_potong is None:
+                        result = {"tersedia": False, "pesan": "Seluruh rentang di luar batas akses publik (H-30 s.d. hari ini). Login untuk akses penuh."}
+                    else:
+                        ta, tb, dipotong = hasil_potong
+                        result = get_statistik_wilayah(engine2, fn_args.get('wilayah_id'), ta, tb, fn_args['metrik'])
+                        if dipotong and isinstance(result, dict):
+                            result['catatan'] = f"Rentang dipotong ke {ta.isoformat()} - {tb.isoformat()} karena belum login."
+
+                elif fn_name == "get_akumulasi_hari_hujan":
+                    tahun, ba, bb = batasi_rentang_bulan(
+                        is_logged_in, fn_args['tahun'],
+                        fn_args['bulan_awal'], fn_args['bulan_akhir']
+                    )
+                    result = get_akumulasi_hari_hujan(engine2, fn_args['kecamatan_id'], tahun, ba, bb)
+
+                elif fn_name == "get_data_dasarian":
+                    tahun, bln, _ = batasi_rentang_bulan(is_logged_in, fn_args['tahun'], fn_args['bulan'], fn_args['bulan'])
+                    result = get_data_dasarian(engine2, fn_args['kecamatan_id'], tahun, bln, fn_args['dasarian'])
+
+                elif fn_name == "get_curah_hujan_harian_wilayah":
+                    tgl = date(fn_args['tahun'], fn_args['bulan'], fn_args['hari'])
+                    if not dalam_batas_publik(is_logged_in, tgl):
+                        awal, akhir = rentang_publik_harian()
+                        result = {"tersedia": False, "pesan": f"Pengguna belum login hanya bisa akses data {awal.isoformat()} s.d. {akhir.isoformat()}. Login untuk akses penuh."}
+                    else:
+                        result = get_curah_hujan_harian_wilayah(engine2, fn_args.get('wilayah_id'), tgl.year, tgl.month, tgl.day)
+
+                elif fn_name == "get_perbandingan_pos_wilayah":
+                    tgl_awal = date.fromisoformat(fn_args['tanggal_awal'])
+                    tgl_akhir = date.fromisoformat(fn_args['tanggal_akhir'])
+                    hasil_potong = potong_rentang_publik(is_logged_in, tgl_awal, tgl_akhir)
+                    if hasil_potong is None:
+                        result = {"tersedia": False, "pesan": "Seluruh rentang di luar batas akses publik (H-30 s.d. hari ini). Login untuk akses penuh."}
+                    else:
+                        ta, tb, dipotong = hasil_potong
+                        result = get_perbandingan_pos_wilayah(engine2, fn_args['kecamatan_id'], ta, tb)
+                        if dipotong and isinstance(result, dict):
+                            result['catatan'] = f"Rentang dipotong ke {ta.isoformat()} - {tb.isoformat()} karena belum login."
+
+                elif fn_name == "get_dasarian_wilayah":
+                    tahun, bln, _ = batasi_rentang_bulan(is_logged_in, fn_args['tahun'], fn_args['bulan'], fn_args['bulan'])
+                    result = get_dasarian_wilayah(engine2, fn_args['wilayah_id'], tahun, bln, fn_args['dasarian'])
+
+                else:
+                    result = {"error": f"Tool {fn_name} tidak dikenali."}
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call.id,
+                    "content": json.dumps(result)
+                })
+
+        return jsonify({"error": "Terlalu banyak langkah, coba pertanyaan lebih spesifik."})
+    except Exception as e:
+        app.logger.exception("Kesalahan asisten: %s", type(e).__name__)
+        return jsonify({"error": "Asisten sedang bermasalah. Coba lagi sebentar."}), 500
+# ================== AKHIR AI ASSISTANT ==================
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
